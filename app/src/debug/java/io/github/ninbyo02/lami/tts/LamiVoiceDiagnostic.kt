@@ -1,7 +1,6 @@
 package io.github.ninbyo02.lami.tts
 
 import java.io.File
-import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -12,24 +11,24 @@ import org.pytorch.executorch.Tensor
 /** Bounded fixed-probe and arbitrary-text synthesis; text requires natural EOS. */
 internal object LamiVoiceDiagnostic {
     suspend fun synthesizeText(context: android.content.Context, root: File, text: String, reuseCpWorkspace: Boolean = true, progress: (String) -> Unit = {}): FloatArray = coroutineScope {
-        val decoderPreload = async {
-            runCatching {
-                LamiVoiceDecoderProcess.preloadDynamicDecoder(context, root, progress)
-            }
+        val preparationScope = this
+        val decoderPreload = LamiVoiceStreamingProbe.VerifiedDecoderPreload(
+            preload = { LamiVoiceDecoderProcess.preloadDynamicDecoder(context, root, progress) },
+            report = { status -> progress("metric=decoder_preload status=${if (status.isSuccess) "success" else "failed"}") },
+        )
+        val codes = LamiVoiceModuleCache.withSession(root) { session ->
+            LamiPreparedVoiceSynthesizer.generateText(root, text, session, reuseCpWorkspace,
+                onBundleVerified = { decoderPreload.start(preparationScope) }, progress = progress)
         }
-        try {
-            val codes = LamiVoiceModuleCache.withSession(root) { session ->
-                LamiPreparedVoiceSynthesizer.generateText(root, text, session, reuseCpWorkspace, progress = progress)
-            }
-            currentCoroutineContext().ensureActive()
-            decoderPreload.await().onFailure { failure ->
-                progress("metric=decoder_preload status=failed class=${failure.javaClass.simpleName}")
-            }
-            progress("stage=pcm_decode")
-            LamiVoiceDecoderProcess.decode(context, root, codes, progress)
-        } finally {
-            decoderPreload.cancel()
-        }
+        currentCoroutineContext().ensureActive()
+        decoderPreload.awaitBeforeDecode()
+        progress("stage=prepared_natural_eos frames=${codes.frames}")
+        val codeBytes = java.nio.ByteBuffer.allocate(codes.values.size * Long.SIZE_BYTES).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        codes.values.forEach(codeBytes::putLong)
+        val codeHash = java.security.MessageDigest.getInstance("SHA-256").digest(codeBytes.array()).joinToString("") { "%02x".format(it) }
+        progress("codes_sha256=$codeHash frames=${codes.frames}")
+        progress("stage=pcm_decode")
+        LamiVoiceDecoderProcess.decode(context, root, codes, progress)
     }
 
     suspend fun synthesize(root: File, progress: (String) -> Unit = {}): FloatArray {

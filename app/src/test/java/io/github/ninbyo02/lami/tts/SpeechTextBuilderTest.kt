@@ -99,6 +99,38 @@ class SpeechTextBuilderTest {
     }
 
     @Test
+    fun inlineCode_classificationBoundariesStayStableAcrossRepeatedCalls() {
+        val cases = listOf(
+            " _task.run() " to "関数呼び出し",
+            "runTask(1)" to "runTask(1)",
+            "1task()" to "1task()",
+            "git status" to "git status コマンド",
+            "git\tstatus" to "git\tstatus コマンド",
+            "sh a b c" to "sh a b c コマンド",
+            "sh a b c d" to "sh a b c d",
+            "x status" to "x status",
+            "git --version" to "git --version コマンド",
+            "git status!" to "git status!",
+            "abcdefghijklmnopqrst" to "abcdefghijklmnopqrst",
+            "abcdefghijklmnopqrstu" to "コード",
+            "git\nstatus" to "コード",
+            "https://example.com" to "リンク",
+            "   " to "詳しい内容は画面をご確認下さい"
+        )
+
+        repeat(3) {
+            for ((code, expected) in cases) {
+                assertEquals(code, expected, SpeechTextBuilder.build("`$code`"))
+            }
+        }
+        val repeated = "`runTask()` と `git status` と `runTask()` と `git status`"
+        assertEquals(
+            "関数呼び出し と git status コマンド と 関数呼び出し と git status コマンド",
+            SpeechTextBuilder.build(repeated)
+        )
+    }
+
+    @Test
     fun repeatedSymbols_areReduced() {
         val input = "見出し==== と 区切り---- と 強調****"
 
@@ -320,7 +352,7 @@ class SpeechTextBuilderTest {
     fun atxHeadingWithBrainEmoji_isFullyNormalized() {
         val actual = SpeechTextBuilder.build("## 🧠 次の改善案（任意）")
 
-        assertEquals("次の改善案（任意）", actual)
+        assertEquals("次の改善案、任意。", actual)
     }
 
     @Test

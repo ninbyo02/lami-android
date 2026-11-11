@@ -21,6 +21,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
+import io.github.ninbyo02.lami.tts.TtsEngineChoice
 import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -427,6 +428,7 @@ class SettingsPreferences(private val context: Context) {
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
     private val ttsEnabledKey = booleanPreferencesKey("tts_enabled")
+    private val ttsEngineKey = stringPreferencesKey("tts_engine")
     private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     private val localBaseModelDisplayNameKey = stringPreferencesKey(LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY)
@@ -434,6 +436,7 @@ class SettingsPreferences(private val context: Context) {
     private val localGenericModelDisplayNameKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_DISPLAY_NAME_DATASTORE_KEY)
     private val localGenericModelFilePathKey = stringPreferencesKey(LOCAL_GENERIC_MODEL_FILE_PATH_DATASTORE_KEY)
     private val inferenceTargetKey = stringPreferencesKey("inference_target")
+    private val genieXComputeKey = stringPreferencesKey("geniex_compute")
     private val inferenceStatsDisplayModeKey = stringPreferencesKey("inference_stats_display_mode")
     private val preferredBackendDryRunKey = stringPreferencesKey("lami_dev_preferred_backend_dry_run")
     private val markdownStreamingModeKey = stringPreferencesKey("dev_markdown_streaming_mode")
@@ -603,6 +606,10 @@ class SettingsPreferences(private val context: Context) {
         preferences[ttsEnabledKey] ?: true
     }
 
+    val ttsEngineFlow: Flow<TtsEngineChoice> = context.dataStore.data.map { preferences ->
+        TtsEngineChoice.fromStoredValue(preferences[ttsEngineKey])
+    }
+
     val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[devEnableStreamingSentenceTtsKey] ?: true
     }
@@ -633,6 +640,10 @@ class SettingsPreferences(private val context: Context) {
         runCatching {
             InferenceTarget.valueOf(stored.orEmpty())
         }.getOrDefault(InferenceTarget.LOCAL)
+    }
+
+    val genieXCompute: Flow<String> = context.dataStore.data.map { preferences ->
+        GenieXComputeChoice.fromStoredValue(preferences[genieXComputeKey]).storedValue
     }
 
     val inferenceStatsDisplayModeFlow: Flow<InferenceStatsDisplayMode> = context.dataStore.data.map { preferences ->
@@ -934,6 +945,13 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveInferenceTarget(target: InferenceTarget) {
         context.dataStore.edit { preferences ->
             preferences[inferenceTargetKey] = target.name
+        }
+    }
+
+    suspend fun saveGenieXCompute(value: String) {
+        require(GenieXComputeChoice.entries.any { it.storedValue == value })
+        context.dataStore.edit { preferences ->
+            preferences[genieXComputeKey] = value
         }
     }
 
@@ -1578,6 +1596,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun setTtsEnabled(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[ttsEnabledKey] = value
+        }
+    }
+
+    suspend fun setTtsEngine(value: TtsEngineChoice) {
+        context.dataStore.edit { preferences ->
+            preferences[ttsEngineKey] = value.storedValue
         }
     }
 

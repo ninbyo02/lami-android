@@ -26,8 +26,13 @@ internal class LamiSpeechPipeline<T>(
     fun enqueue(text: String): Unit = synchronized(lock) {
         if (text.isBlank()) return@synchronized
         if (worker == null) startWorker()
-        check(checkNotNull(input).trySend(text).isSuccess)
+        val token = generation
+        val incoming = checkNotNull(input)
+        // Reserve ownership before exposing text to a fast/unconfined player;
+        // otherwise its completion can decrement zero before busy is published.
         if (outstanding++ == 0) onBusy(true)
+        if (token != generation) return@synchronized // A busy listener may stop this generation.
+        check(incoming.trySend(text).isSuccess)
     }
 
     private fun startWorker() {

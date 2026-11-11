@@ -45,7 +45,6 @@ fun resolveBuildPrNumber(): String {
 }
 
 val liteRtLmAndroidReleaseVersion = "0.11.0"
-val liteRtLmAndroidDebugVersion = "0.17.0"
 val liteRtLmAndroidNpuExperimentDebugVersion = "0.10.0"
 val liteRtLmAndroidGalleryStackExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryStackGpuProbeDebugVersion = "0.11.0"
@@ -56,10 +55,16 @@ val liteRtLmAndroidStandardGpuNoConstraintProviderDebugVersion = "0.11.0"
 val liteRtLmAndroidGalleryAlignedNpuProbeDebugVersion = "0.11.0"
 val liteRtLmAndroidCustomBuildExperimentDebugVersion = "0.11.0"
 val liteRtLmAndroidTrueEngineNpuProbeDebugVersion = "0.11.0"
+val voiceIntegrationTrial = providers.gradleProperty("lami.voiceIntegrationTrial")
+    .map { it.toBooleanStrict() }.orElse(false)
 val standardGpuOpenClEnabled = providers.gradleProperty("lami.standardGpuOpenClEnabled")
     .map { it.toBooleanStrict() }.orElse(true)
-val standardGpuOpenClDebugEnabled = standardGpuOpenClEnabled.get() &&
+val pinnedDebugRuntimeRequired = !voiceIntegrationTrial.get() &&
     !providers.gradleProperty("lami.allowMissingQairt244Jni").map { it.toBooleanStrict() }.orElse(false).get()
+val standardGpuOpenClDebugEnabled = pinnedDebugRuntimeRequired && standardGpuOpenClEnabled.get()
+// The pinned device JNI is built from v0.11.0. Keep its Java API and native ABI
+// together; the newer stock runtime is only used by isolated smoke/trial builds.
+val liteRtLmAndroidDebugVersion = if (pinnedDebugRuntimeRequired) "0.11.0" else "0.17.0"
 
 val tokenizerOnlyDiagnostic = providers.gradleProperty("lami.tokenizerOnlyDiagnostic")
     .map { it.toBooleanStrict() }.orElse(false)
@@ -331,6 +336,14 @@ android {
             } else {
                 ".assistantprobe"
             }
+            if (voiceIntegrationTrial.get()) {
+                require(providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull != "true" &&
+                    !gpuIdlePrewarmDiagnostic.get() && !imageBenchmark.get() &&
+                    !standardNpuRuntimeEnabled.get()) {
+                    "Voice integration trial cannot be combined with other diagnostic package modes"
+                }
+                applicationIdSuffix = ".voiceintegrationtrial"
+            }
             buildConfigField("String", "LITERTLM_ANDROID_VERSION", "\"$liteRtLmAndroidDebugVersion\"")
             if (gpuIdlePrewarmDiagnostic.get()) {
                 applicationIdSuffix = ".gpuidleprewarm"
@@ -367,7 +380,11 @@ android {
     }
     sourceSets {
         maybeCreate("standardDebug").apply {
-            jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+            // The trial uses the verified QAIRT 2.47 packager after assembly.
+            // Never consume a stale 2.44 staging directory from another build.
+            if (!voiceIntegrationTrial.get()) {
+                jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardDebugJniLibs"))
+            }
         }
         maybeCreate("standardRelease").apply {
             jniLibs.srcDir(layout.buildDirectory.dir("generated/qairt244StandardReleaseJniLibs"))
@@ -426,6 +443,11 @@ androidComponents {
         }
     }
     onVariants { variant ->
+        if (variant.buildType == "debug") {
+            // Kuromoji IPADIC and core carry byte-identical copies.
+            variant.packaging.resources.pickFirsts.add("META-INF/CONTRIBUTORS.md")
+            variant.packaging.resources.pickFirsts.add("META-INF/LICENSE.md")
+        }
         val flavor = variant.productFlavors.firstOrNull { it.first == "dispatchExperiment" }?.second
         val gpuPrewarmDiagnosticVariant =
             flavor == "standard" && variant.buildType == "debug" && gpuIdlePrewarmDiagnostic.get()
@@ -458,11 +480,21 @@ androidComponents {
         if (
             variant.buildType == "debug" &&
             flavor == "standard" &&
-            providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true"
+            (providers.gradleProperty("lami.residentCpDiagnosticPackaging").orNull == "true" ||
+                voiceIntegrationTrial.get())
         ) {
-            // Isolated .assistantprobe APK only. Never enable on the production release.
+            // Isolated diagnostic/trial APK only. Never enable on the production release.
             // Diagnostic JNI/QNN payload is not silently added by this flag.
             variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
+        if (voiceIntegrationTrial.get() && variant.name == "standardDebug") {
+            // Dependencies also carry QNN 2.34. Supply QNN only through the
+            // separately pinned 2.47 staging/signing gate, while keeping the
+            // ordinary LiteRT-LM GPU implementation and app payload intact.
+            listOf(
+                "**/libQnn*.so", "**/libqnn*.so", "**/*qairt244*.so",
+                "**/libLiteRtDispatch_Qualcomm.so", "**/libLiteRtCompilerPlugin_Qualcomm.so",
+            ).forEach { variant.packaging.jniLibs.excludes.add(it) }
         }
         if (
             variant.buildType == "release" &&
@@ -1313,12 +1345,20 @@ tasks.register("overlayQairt244StandardDebugStrippedNativeLibs") {
 }
 
 tasks.matching { it.name == "packageStandardDebug" }.configureEach {
-    dependsOn("overlayQairt244StandardDebugNativeLibs")
-    dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+    if (!voiceIntegrationTrial.get()) {
+        dependsOn("overlayQairt244StandardDebugNativeLibs")
+        dependsOn("overlayQairt244StandardDebugStrippedNativeLibs")
+    }
 }
 
 tasks.matching { it.name == "mergeStandardDebugJniLibFolders" }.configureEach {
-    dependsOn("stageQairt244StandardDebugNativeLibs")
+    inputs.property("voiceIntegrationTrial", voiceIntegrationTrial)
+    if (!voiceIntegrationTrial.get()) {
+        dependsOn("stageQairt244StandardDebugNativeLibs")
+    }
+    // The source directory list changes between trial and normal builds. Force
+    // re-merging to discard native files previously overlaid outside AGP.
+    outputs.upToDateWhen { false }
 }
 
 tasks.matching { it.name == "mergeDebugJniLibFolders" }.configureEach {
@@ -1568,6 +1608,8 @@ kotlin {
 
 
 dependencies {
+    implementation(project(":geniex-bridge"))
+
     //Variables
     val navVersion = "2.8.6"
     val roomVersion = "2.7.1"
@@ -1575,7 +1617,9 @@ dependencies {
 
     //Markdown
     implementation("com.github.jeziellago:compose-markdown:$markdown")
-    implementation(files("libs/sherpa-onnx-1.13.6.aar"))
+    // Reproducible opt-in JNI rebuild; the original ORT and Java classes are retained.
+    val streamingSherpaRuntime = file("libs/sherpa-onnx-1.13.6-lami-stream.aar")
+    implementation(files(if (streamingSherpaRuntime.isFile) streamingSherpaRuntime else file("libs/sherpa-onnx-1.13.6.aar")))
 
     //implemented
     //noinspection UseTomlInstead
@@ -1597,7 +1641,6 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    implementation(files("libs/sherpa-onnx-1.13.6.aar"))
     add("standardImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidDebugVersion")
     add("npuExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidNpuExperimentDebugVersion")
     add("galleryStackExperimentImplementation", "com.google.ai.edge.litertlm:litertlm-android:$liteRtLmAndroidGalleryStackExperimentDebugVersion")
@@ -1614,6 +1657,8 @@ dependencies {
     implementation("com.qualcomm.qti:qnn-litert-delegate:2.34.0")
     debugImplementation(if (providers.gradleProperty("lami.voiceVulkan").orNull == "true") "org.pytorch:executorch-android-vulkan:1.4.0" else "org.pytorch:executorch-android:1.4.0")
     implementation("com.google.mediapipe:tasks-genai:0.10.33")
+    debugImplementation("com.google.mediapipe:tasks-audio:1.2.2")
+    debugImplementation("com.atilika.kuromoji:kuromoji-ipadic:0.9.0")
     
 
     //Generated
@@ -1687,22 +1732,62 @@ tasks.matching { it.name == "mergeStandardDebugJniLibFolders" || it.name == "mer
 }
 
 
-// Debug-only voice heads. Preserve sequential FP32 accumulation across JVM/ARM.
+// Debug-only voice heads. Preserve sequential FP32 accumulation across JVM/ARM/x86.
 val voiceMatrixJniRoot = layout.buildDirectory.dir("generated/lamiVoiceMatrixDebugJniLibs")
 android.sourceSets.getByName("debug").jniLibs.srcDir(voiceMatrixJniRoot)
 tasks.register("buildLamiVoiceMatrixDebugJni") {
     inputs.file(layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp"))
     outputs.file(voiceMatrixJniRoot.map { it.file("arm64-v8a/liblami_voice_matrix.so") })
+    outputs.file(voiceMatrixJniRoot.map { it.file("x86_64/liblami_voice_matrix.so") })
     doLast {
-        val compiler = requireNotNull(findAndroidNdkClang()) { "Android NDK compiler required for debug voice matrix kernels" }
-        val output = voiceMatrixJniRoot.get().file("arm64-v8a/liblami_voice_matrix.so").asFile
-        output.parentFile.mkdirs()
-        exec {
-            commandLine(compiler.absolutePath, "-shared", "-fPIC", "-std=c++17", "-O3", "-ffp-contract=off", "-fno-fast-math", "-fno-exceptions", "-fno-rtti", "-nostdlib++", "-Wl,--build-id=sha1",
-                layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp").asFile.absolutePath, "-o", output.absolutePath)
+        val armCompiler = requireNotNull(findAndroidNdkClang()) { "Android NDK compiler required for debug voice matrix kernels" }
+        val compilers = listOf(
+            "arm64-v8a" to armCompiler,
+            "x86_64" to armCompiler.parentFile.resolve("x86_64-linux-android34-clang++"),
+        )
+        for ((abi, compiler) in compilers) {
+            require(compiler.isFile) { "Android NDK compiler missing for $abi: $compiler" }
+            val output = voiceMatrixJniRoot.get().file("$abi/liblami_voice_matrix.so").asFile
+            output.parentFile.mkdirs()
+            exec {
+                commandLine(compiler.absolutePath, "-shared", "-fPIC", "-std=c++17", "-O3", "-ffp-contract=off", "-fno-fast-math", "-fno-exceptions", "-fno-rtti", "-nostdlib++", "-Wl,--build-id=sha1",
+                    layout.projectDirectory.file("src/debug/cpp/lami_voice_matrix.cpp").asFile.absolutePath, "-o", output.absolutePath)
+            }
         }
     }
 }
 tasks.matching { it.name.endsWith("DebugJniLibFolders") || it.name.endsWith("DebugNativeLibs") }.configureEach {
     dependsOn("buildLamiVoiceMatrixDebugJni")
+}
+
+// The Kokoro bridge uses the ONNX Runtime already supplied by Sherpa's AAR.
+val kokoroScratchJniRoot = layout.buildDirectory.dir("generated/lamiKokoroScratchDebugJniLibs")
+android.sourceSets.getByName("debug").jniLibs.srcDir(kokoroScratchJniRoot)
+tasks.register("buildLamiKokoroScratchDebugJni") {
+    val source = layout.projectDirectory.file("src/debug/cpp/lami_kokoro_scratch_ort.cpp")
+    inputs.file(source)
+    inputs.dir(layout.projectDirectory.dir("src/debug/cpp/ort27"))
+    outputs.file(kokoroScratchJniRoot.map { it.file("arm64-v8a/liblami_kokoro_scratch.so") })
+    outputs.file(kokoroScratchJniRoot.map { it.file("x86_64/liblami_kokoro_scratch.so") })
+    doLast {
+        val armCompiler = requireNotNull(findAndroidNdkClang()) { "Android NDK compiler required for Kokoro" }
+        val compilers = listOf(
+            "arm64-v8a" to armCompiler,
+            "x86_64" to armCompiler.parentFile.resolve("x86_64-linux-android34-clang++"),
+        )
+        for ((abi, compiler) in compilers) {
+            require(compiler.isFile) { "Android NDK compiler missing for $abi: $compiler" }
+            val output = kokoroScratchJniRoot.get().file("$abi/liblami_kokoro_scratch.so").asFile
+            output.parentFile.mkdirs()
+            exec {
+                commandLine(compiler.absolutePath, "-shared", "-fPIC", "-std=c++17", "-O2",
+                    "-fvisibility=hidden", "-fvisibility-inlines-hidden", "-Wl,--exclude-libs,ALL",
+                    "-static-libstdc++", "-Wl,-z,max-page-size=16384", "-ldl",
+                    source.asFile.absolutePath, "-o", output.absolutePath)
+            }
+        }
+    }
+}
+tasks.matching { it.name.endsWith("DebugJniLibFolders") || it.name.endsWith("DebugNativeLibs") }.configureEach {
+    dependsOn("buildLamiKokoroScratchDebugJni")
 }

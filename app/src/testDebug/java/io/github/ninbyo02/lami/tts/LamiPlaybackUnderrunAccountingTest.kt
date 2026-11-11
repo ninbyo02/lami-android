@@ -28,6 +28,38 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(5, session.observedUnderruns)
     }
 
+    @Test fun repeatedCounterResetsRebaseWithoutRecountingBaseline() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = 10)
+        // Each decrease starts a new counter epoch; only subsequent increases count.
+        val readingsAndTotals = listOf(
+            14 to 4,
+            6 to 4,
+            6 to 4,
+            9 to 7,
+            2 to 7,
+            5 to 10,
+            0 to 10,
+            0 to 10,
+            1 to 11,
+        )
+
+        for ((reading, expectedTotal) in readingsAndTotals) {
+            assertEquals("Counter reading $reading", expectedTotal, session.observe(reading))
+            assertEquals(expectedTotal, session.observedUnderruns)
+        }
+    }
+
+    @Test fun counterResetNearIntegerLimitPreservesSmallSessionTotal() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = Int.MAX_VALUE - 1)
+
+        assertEquals(1, session.observe(Int.MAX_VALUE))
+        // A large platform baseline is not part of this session's total.
+        assertEquals(1, session.observe(0))
+        assertEquals(1, session.observe(0))
+        assertEquals(2, session.observe(1))
+        assertEquals(2, session.observedUnderruns)
+    }
+
     @Test fun sessionSaturatesAccumulatedUnderrunsInsteadOfWrapping() {
         val session = LamiPlaybackUnderrunAccounting.session(initialCount = 0)
 
@@ -35,6 +67,57 @@ class LamiPlaybackUnderrunAccountingTest {
         assertEquals(Int.MAX_VALUE, session.observe(0))
         assertEquals(Int.MAX_VALUE, session.observe(Int.MAX_VALUE))
         assertEquals(Int.MAX_VALUE, session.observedUnderruns)
+    }
+
+    @Test fun smallDeltaAcrossEpochsSaturatesAtIntegerBoundaryAndStaysSaturated() {
+        val session = LamiPlaybackUnderrunAccounting.session(initialCount = 0)
+
+        assertEquals(Int.MAX_VALUE - 3, session.observe(Int.MAX_VALUE - 3))
+        assertEquals(Int.MAX_VALUE - 3, session.observe(0))
+        assertEquals(Int.MAX_VALUE - 1, session.observe(2))
+        // Neither epoch reaches the limit on its own; their sum crosses it by one.
+        assertEquals(Int.MAX_VALUE, session.observe(4))
+        assertEquals(Int.MAX_VALUE, session.observe(4))
+        assertEquals(Int.MAX_VALUE, session.observe(0))
+        assertEquals(Int.MAX_VALUE, session.observe(1))
+        assertEquals(Int.MAX_VALUE, session.observedUnderruns)
+    }
+
+    @Test fun monotonicCounterTotalIsIndependentOfObservationCadence() {
+        val initialCount = 17
+        val finalCount = Int.MAX_VALUE
+        val finalOnly = LamiPlaybackUnderrunAccounting.session(initialCount)
+        val frequentlyPolled = LamiPlaybackUnderrunAccounting.session(initialCount)
+
+        // Repeated polls and intermediate readings must not inflate or lose events.
+        val readings = listOf(initialCount, 18, 1_000_000_000, finalCount - 1, finalCount)
+        for (reading in readings) {
+            assertEquals(reading - initialCount, frequentlyPolled.observe(reading))
+            assertEquals(reading - initialCount, frequentlyPolled.observe(reading))
+        }
+
+        val expected = finalCount - initialCount
+        assertEquals(expected, finalOnly.observe(finalCount))
+        assertEquals(expected, frequentlyPolled.observedUnderruns)
+        assertEquals(finalOnly.observedUnderruns, frequentlyPolled.observedUnderruns)
+    }
+
+    @Test fun playbackSessionsKeepIndependentBaselinesAndTotals() {
+        val firstPlayback = LamiPlaybackUnderrunAccounting.session(initialCount = 4)
+        assertEquals(3, firstPlayback.observe(7))
+
+        // A later playback starts with the existing cumulative platform count.
+        val laterPlayback = LamiPlaybackUnderrunAccounting.session(initialCount = 7)
+        assertEquals(0, laterPlayback.observe(7))
+        assertEquals(2, laterPlayback.observe(9))
+        assertEquals(3, firstPlayback.observedUnderruns)
+
+        // Resetting one track's counter must not rebase another session.
+        assertEquals(3, firstPlayback.observe(0))
+        assertEquals(4, firstPlayback.observe(1))
+        assertEquals(3, laterPlayback.observe(10))
+        assertEquals(4, firstPlayback.observedUnderruns)
+        assertEquals(3, laterPlayback.observedUnderruns)
     }
 
     @Test fun sessionRejectsInvalidObservationWithoutCorruptingAccounting() {
@@ -62,13 +145,13 @@ class LamiPlaybackUnderrunAccountingTest {
 
     @Test fun streamPlayerStatsComeFromPostPlaybackUnderrunObservation() {
         val source = File(
-            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+            "src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
         ).readText()
 
         val sessionStart = source.indexOf(
             "val underrunSession = LamiPlaybackUnderrunAccounting.session(track.underrunCount)",
         )
-        val playbackDrain = source.indexOf("while (track.playbackHeadPosition < submitted)")
+        val playbackDrain = source.indexOf("while (playbackHead() < submitted)")
         val finalObservation = source.indexOf(
             "val observedUnderruns = underrunSession.observe(track.underrunCount)",
         )
@@ -82,7 +165,7 @@ class LamiPlaybackUnderrunAccountingTest {
 
     @Test fun streamPlayerStatsDoNotExposeRawCumulativeTrackCounter() {
         val source = File(
-            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+            "src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
         ).readText()
 
         val statsUnderrunArgument = Regex("""return\s+Stats\(\s*submitted\s*,\s*([^)]+)\)""")

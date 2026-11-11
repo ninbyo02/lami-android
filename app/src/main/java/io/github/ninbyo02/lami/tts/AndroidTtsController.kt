@@ -24,7 +24,12 @@ private const val TTS_REFERENCE_PHRASE_2 = "はい、了解しました。少し
 private const val TTS_REFERENCE_PHRASE_3 = "それでは設定内容を順番に説明しますね。まず最初に、必要な項目を確認しましょう。"
 private const val TTS_REFERENCE_PHRASE_4 = "大丈夫ですよ。落ち着いて進めれば、きっとうまくいきます。"
 
-class AndroidTtsController(context: Context) : LamiVoiceEngine {
+class AndroidTtsController internal constructor(
+    context: Context,
+    playbackOverride: AndroidTtsPcmPlayback?,
+) : LamiVoiceEngine {
+    constructor(context: Context) : this(context, null)
+
     companion object {
         const val DEFAULT_SPEECH_RATE: Float = DEFAULT_TTS_SPEECH_RATE
         const val DEFAULT_PITCH: Float = DEFAULT_TTS_PITCH
@@ -39,21 +44,23 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     private val appContext = context.applicationContext
     private val mainHandler = Handler(Looper.getMainLooper())
     private var onPlaybackStateChanged: ((Boolean) -> Unit)? = null
+    private var onAudioStarted: (() -> Unit)? = null
+    private var onError: ((String) -> Unit)? = null
+    private var onStreamingProgress: ((TtsStreamingProgress) -> Unit)? = null
     private var tts: TextToSpeech? = null
     private var isReady = false
-    private var pendingSpeakText: String? = null
     private val queuedSpeechTexts = ArrayDeque<String>()
     private var hasActiveUtterance = false
     private var currentSpeechRate: Float = DEFAULT_TTS_SPEECH_RATE
     private var currentPitch: Float = DEFAULT_TTS_PITCH
     private var lastPlaybackEndedAtMs: Long = 0L
-    private var playbackGeneration: Long = 0L
+    @Volatile private var playbackGeneration: Long = 0L
     private var activeUtteranceId: String? = null
     private var playbackStateRevision = 0L
     private val audio = appContext.getSystemService(android.media.AudioManager::class.java)
     private val privacyReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: android.content.Intent?) {
-            if (audio.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL && !usbPlayback.isActive()) stop()
+            if (audio.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL && !usbPlayback.isUsbActive()) stop()
         }
     }
     private val _isSpeaking = MutableStateFlow(false)
@@ -61,16 +68,9 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     @Volatile
     var lastPlaybackCompletedNormally = false
         private set
-    private val usbPlayback = UsbTtsPlayback(appContext, completed = { succeeded ->
-        synchronized(this@AndroidTtsController) {
-            lastPlaybackCompletedNormally = succeeded
-            hasActiveUtterance = false
-            if (!speakNextQueuedIfAvailable()) {
-                markPlaybackEnded()
-                notifyPlaybackState(false)
-            }
-        }
-    }, trace = ::trace)
+    private val usbPlayback: AndroidTtsPcmPlayback = (playbackOverride ?: UsbTtsPlayback(appContext, ::trace)).also {
+        it.setListener(::onPcmCompleted, ::notifyAudioStarted, ::notifyStreamingProgress)
+    }
 
     fun canPlayInCurrentMode(): Boolean =
         audio.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL || usbPlayback.target() != null
@@ -94,70 +94,53 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
                     tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                         override fun onStart(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
-                            Log.i(LOG_TAG, "playback_started utterance_id=$utteranceId")
-                            trace("playback_started utterance_id=$utteranceId")
+                            // This is file synthesis starting, not AudioTrack playback.
                             hasActiveUtterance = true
                             notifyPlaybackState(true)
                         }
 
+                        override fun onBeginSynthesis(utteranceId: String?, sampleRateInHz: Int, audioFormat: Int, channelCount: Int): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            usbPlayback.beginSynthesis(utteranceId, sampleRateInHz, audioFormat, channelCount)
+                        }
+
+                        override fun onAudioAvailable(utteranceId: String?, audio: ByteArray?): Unit = synchronized(this@AndroidTtsController) {
+                            if (!isCurrentPlaybackGeneration(utteranceId)) return
+                            if (audio == null) usbPlayback.failed(utteranceId, "Android TTS supplied null PCM")
+                            else usbPlayback.audioAvailable(utteranceId, audio)
+                        }
+
                         override fun onDone(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
-                            if (usbPlayback.synthesized(utteranceId)) return
-                            lastPlaybackCompletedNormally = true
-                            Log.i(LOG_TAG, "playback_done utterance_id=$utteranceId")
-                            trace("playback_done utterance_id=$utteranceId")
-                            hasActiveUtterance = false
-                            if (speakNextQueuedIfAvailable()) return
-                            markPlaybackEnded()
-                            notifyPlaybackState(false)
+                            // File synthesis is complete; keep ownership until streamed audio drains.
+                            usbPlayback.synthesized(utteranceId)
                         }
 
                         @Deprecated("Deprecated by Android; kept for compatibility with older TTS callbacks.")
                         override fun onError(utteranceId: String?): Unit = synchronized(this@AndroidTtsController) {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
-                            if (usbPlayback.failed(utteranceId)) return
-                            Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=legacy")
-                            hasActiveUtterance = false
-                            if (speakNextQueuedIfAvailable()) return
-                            markPlaybackEnded()
-                            notifyPlaybackState(false)
+                            usbPlayback.failed(utteranceId, "Android TTSの音声生成に失敗しました。")
                         }
 
                         override fun onError(utteranceId: String?, errorCode: Int): Unit = synchronized(this@AndroidTtsController) {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
-                            if (usbPlayback.failed(utteranceId)) return
-                            Log.w(LOG_TAG, "playback_error utterance_id=$utteranceId error_code=$errorCode")
-                            hasActiveUtterance = false
-                            if (speakNextQueuedIfAvailable()) return
-                            markPlaybackEnded()
-                            notifyPlaybackState(false)
+                            usbPlayback.failed(utteranceId, "Android TTSの音声生成に失敗しました（$errorCode）。")
                         }
 
                         override fun onStop(utteranceId: String?, interrupted: Boolean): Unit = synchronized(this@AndroidTtsController) {
                             if (!isCurrentPlaybackGeneration(utteranceId)) return
-                            if (usbPlayback.failed(utteranceId)) return
-                            hasActiveUtterance = false
-                            if (interrupted) {
-                                activeUtteranceId = null
-                                queuedSpeechTexts.clear()
-                            } else if (speakNextQueuedIfAvailable()) {
-                                return
-                            }
-                            markPlaybackEnded()
-                            notifyPlaybackState(false)
+                            if (interrupted) queuedSpeechTexts.clear()
+                            usbPlayback.failed(utteranceId, "Android TTSの音声生成が中断されました。")
                         }
                     })
 
-                    val pendingText = pendingSpeakText
-                    pendingSpeakText = null
-                    if (!pendingText.isNullOrEmpty()) {
-                        speakInternal(pendingText, TextToSpeech.QUEUE_FLUSH)
-                    }
+                    speakNextQueuedIfAvailable()
                 } else {
                     Log.e(LOG_TAG, "initialized status=failure error_code=$status")
                     isReady = false
-                    pendingSpeakText = null
+                    queuedSpeechTexts.clear()
                     notifyPlaybackState(false)
+                    notifyError("Android TTSを初期化できませんでした（$status）。")
                 }
             }
         }
@@ -166,6 +149,21 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     @Synchronized
     override fun setOnPlaybackStateChanged(listener: (Boolean) -> Unit) {
         onPlaybackStateChanged = listener
+    }
+
+    @Synchronized
+    override fun setOnAudioStarted(listener: () -> Unit) {
+        onAudioStarted = listener
+    }
+
+    @Synchronized
+    override fun setOnError(listener: (String) -> Unit) {
+        onError = listener
+    }
+
+    @Synchronized
+    override fun setOnStreamingProgress(listener: (TtsStreamingProgress) -> Unit) {
+        onStreamingProgress = listener
     }
 
     override fun speak(text: String) {
@@ -230,39 +228,46 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
             trace("request_text=$debugText")
             Log.d(LOG_TAG, "request_text=$debugText")
         }
+        if (queueMode == TextToSpeech.QUEUE_FLUSH) {
+            playbackGeneration += 1
+            activeUtteranceId = null
+            usbPlayback.stop()
+            runCatching { tts?.stop() }
+            queuedSpeechTexts.clear()
+            hasActiveUtterance = false
+        }
+        // Split after sanitizing, and retain these boundaries while initialization
+        // or earlier PCM playback is pending. Joining pending sentences could put
+        // an otherwise valid request back over Android's UTF-16 input limit.
+        queuedSpeechTexts.addAll(splitAndroidTtsText(finalSpeechText, TextToSpeech.getMaxSpeechInputLength()))
         if (!isReady) {
-            pendingSpeakText = if (queueMode == TextToSpeech.QUEUE_ADD && !pendingSpeakText.isNullOrBlank()) {
-                "${pendingSpeakText.orEmpty()} $finalSpeechText".trim()
-            } else {
-                finalSpeechText
-            }
             return
         }
         if (queueMode == TextToSpeech.QUEUE_ADD) {
             if (hasActiveUtterance || tts?.isSpeaking == true || _isSpeaking.value) {
-                queuedSpeechTexts.add(finalSpeechText)
                 notifyPlaybackState(true)
                 return
             }
-            notifyPlaybackState(true)
-            speakInternal(finalSpeechText, TextToSpeech.QUEUE_FLUSH)
-            return
         }
-        queuedSpeechTexts.clear()
-        speakInternal(finalSpeechText, queueMode)
+        speakNextQueuedIfAvailable()
     }
 
     private fun speakNextQueuedIfAvailable(): Boolean {
         val nextText = queuedSpeechTexts.pollFirst() ?: return false
         notifyPlaybackState(true)
-        speakInternal(nextText, TextToSpeech.QUEUE_FLUSH)
+        speakInternal(nextText)
         return true
     }
 
     @Synchronized
-    private fun speakInternal(text: String, queueMode: Int) {
+    private fun speakInternal(text: String) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { speakInternal(text, queueMode) }
+            val generation = playbackGeneration
+            mainHandler.post {
+                synchronized(this@AndroidTtsController) {
+                    if (generation == playbackGeneration) speakInternal(text)
+                }
+            }
             return
         }
         runCatching {
@@ -273,31 +278,41 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
             check(usb != null || audio.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL) {
                 "Unverifiable external TTS route is blocked in silent/vibrate mode"
             }
-            if (usb != null || usbPlayback.isActive()) {
-                playbackGeneration += 1
-                usbPlayback.stop()
-                engine.stop()
-            }
             val utteranceId = nextUtteranceId()
             activeUtteranceId = utteranceId
+            lastPlaybackCompletedNormally = false
             engine.setSpeechRate(currentSpeechRate)
             engine.setPitch(currentPitch)
-            val result = if (usb != null) {
-                val file = usbPlayback.begin(utteranceId, usb)
-                engine.synthesizeToFile(text, null, file, utteranceId)
-            } else {
-                engine.speak(text, queueMode, null, utteranceId)
-            }
+            val file = usbPlayback.begin(utteranceId, usb)
+            // Capture only. The Android engine must never also play through its own speaker route.
+            val result = engine.synthesizeToFile(text, null, file, utteranceId)
             check(result == TextToSpeech.SUCCESS) { "TTS speak rejected with status=$result" }
             Log.i(LOG_TAG, "speak_accepted utterance_id=$utteranceId")
             trace("speak_accepted utterance_id=$utteranceId")
             hasActiveUtterance = true
             notifyPlaybackState(true)
         }.onFailure { exception ->
+            activeUtteranceId = null
             usbPlayback.stop()
             Log.e(LOG_TAG, "speak_failed", exception)
+            notifyError("Android TTSの読み上げを開始できませんでした: ${exception.message ?: exception.javaClass.simpleName}")
             hasActiveUtterance = false
-            notifyPlaybackState(false)
+            if (queuedSpeechTexts.isEmpty()) {
+                markPlaybackEnded()
+                notifyPlaybackState(false)
+            } else {
+                // A rejected fragment must not strand the remaining queue. Post
+                // rather than recurse when a disconnected engine rejects many.
+                val generation = playbackGeneration
+                mainHandler.post {
+                    synchronized(this@AndroidTtsController) {
+                        if (generation == playbackGeneration && !speakNextQueuedIfAvailable()) {
+                            markPlaybackEnded()
+                            notifyPlaybackState(false)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -307,7 +322,6 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         activeUtteranceId = null
         trace("stop generation=$playbackGeneration queued=${queuedSpeechTexts.size}")
         usbPlayback.stop()
-        pendingSpeakText = null
         queuedSpeechTexts.clear()
         hasActiveUtterance = false
         runCatching {
@@ -315,6 +329,28 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         }
         markPlaybackEnded()
         notifyPlaybackState(false)
+    }
+
+    override suspend fun stopForVoiceInput() {
+        stop()
+        usbPlayback.awaitCleanup()
+    }
+
+    @Synchronized
+    private fun onPcmCompleted(utteranceId: String, succeeded: Boolean, reason: String?) {
+        if (!isCurrentPlaybackGeneration(utteranceId)) return
+        activeUtteranceId = null
+        lastPlaybackCompletedNormally = succeeded
+        hasActiveUtterance = false
+        if (!succeeded) {
+            runCatching { tts?.stop() }
+            notifyError("Android TTSの音声生成・再生に失敗しました: ${reason.orEmpty()}")
+        }
+        trace("playback_drained utterance_id=$utteranceId succeeded=$succeeded")
+        if (!speakNextQueuedIfAvailable()) {
+            markPlaybackEnded()
+            notifyPlaybackState(false)
+        }
     }
 
     override fun isInCooldown(): Boolean = isInCooldown(SystemClock.elapsedRealtime())
@@ -332,10 +368,10 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
     override fun shutdown() {
         runCatching { appContext.unregisterReceiver(privacyReceiver) }
         stop()
+        usbPlayback.shutdown()
         runCatching {
             tts?.shutdown()
         }
-        pendingSpeakText = null
         queuedSpeechTexts.clear()
         hasActiveUtterance = false
         tts = null
@@ -348,6 +384,33 @@ class AndroidTtsController(context: Context) : LamiVoiceEngine {
         mainHandler.post {
             synchronized(this@AndroidTtsController) {
                 if (revision == playbackStateRevision) onPlaybackStateChanged?.invoke(isPlaying)
+            }
+        }
+    }
+
+    private fun notifyAudioStarted(utteranceId: String) {
+        mainHandler.post {
+            synchronized(this@AndroidTtsController) {
+                if (isCurrentPlaybackGeneration(utteranceId)) runCatching { onAudioStarted?.invoke() }
+            }
+        }
+    }
+
+    private fun notifyStreamingProgress(utteranceId: String, event: TtsStreamingProgress) {
+        val generation = playbackGeneration
+        if (!utteranceId.startsWith("lami-tts-$generation-")) return
+        mainHandler.post {
+            synchronized(this@AndroidTtsController) {
+                if (generation == playbackGeneration) runCatching { onStreamingProgress?.invoke(event) }
+            }
+        }
+    }
+
+    private fun notifyError(message: String) {
+        val generation = playbackGeneration
+        mainHandler.post {
+            synchronized(this@AndroidTtsController) {
+                if (generation == playbackGeneration) runCatching { onError?.invoke(message) }
             }
         }
     }

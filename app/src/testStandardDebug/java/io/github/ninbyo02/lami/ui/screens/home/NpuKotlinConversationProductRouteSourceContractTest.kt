@@ -54,7 +54,7 @@ class NpuKotlinConversationProductRouteSourceContractTest {
         assertFalse(chat.contains("s1AnswerAlreadyPersisted"))
         assertFalse(chat.contains("npu_standard_route_phase_ui_append\""))
         assertTrue(chat.contains("LOCAL_STREAMING_ROOM_CHECKPOINT_INTERVAL_MS"))
-        assertTrue(chat.contains("val fullText = streamingResponseTextForRender ?: streamingResponseText"))
+        assertTrue(chat.contains("val fullText = streamingResponseText ?: streamingResponseTextForRender"))
         assertTrue(chat.contains("npuStandardRouteNativeStreamingUsed"))
         assertTrue(chat.contains("phase8_native_streaming_pending_db"))
     }

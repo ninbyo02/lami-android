@@ -37,9 +37,16 @@ class LamiVoiceCodecSamplerTest {
             val actual = LamiVoiceCodecSampler(seed = 73L, topK = k)
             val referenceRandom = java.util.Random(73L)
             val inputs = java.util.Random(91L)
-            repeat(200) { step ->
+            repeat(400) { step ->
                 val logits = FloatArray(127) { (inputs.nextInt(17) - 8) / 3f }
                 logits[0] = -0.0f; logits[1] = 0.0f
+                // Reuse the workspace after underflowing weights and all-equal
+                // scores, alternating with ordinary inputs and changing sizes.
+                if (step >= 200) when (step % 4) {
+                    0 -> logits.fill(-Float.MAX_VALUE)
+                    1 -> for (i in logits.indices) logits[i] = if (i % 2 == 0) Float.MAX_VALUE else -Float.MAX_VALUE
+                    2 -> logits.fill(0f)
+                }
                 val allowed = logits.indices.shuffled(kotlin.random.Random(step)).take(1 + step % 127).toSet()
                 val repeated = allowed.filter { it % 3 == 0 }.toSet()
                 val sorted = allowed.map { token ->

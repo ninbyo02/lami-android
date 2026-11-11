@@ -1,0 +1,202 @@
+diff --git a/sherpa-onnx/csrc/offline-tts-supertonic-impl.cc b/sherpa-onnx/csrc/offline-tts-supertonic-impl.cc
+index 13b0ed5..a7ec6de 100644
+--- a/sherpa-onnx/csrc/offline-tts-supertonic-impl.cc
++++ b/sherpa-onnx/csrc/offline-tts-supertonic-impl.cc
+@@ -26,6 +26,14 @@
+ #if __ANDROID_API__ >= 9
+ #include "android/asset_manager.h"
+ #include "android/asset_manager_jni.h"
++
++// Capability handshake: upstream 1.13.6 silently ignores unknown extra options.
++// The application must verify this before claiming intra-sentence streaming.
++extern "C" JNIEXPORT jint JNICALL
++Java_io_github_ninbyo02_lami_tts_LamiSupertonicStreamingRuntime_version(
++    JNIEnv *, jobject) {
++  return 1;
++}
+ #endif
+ 
+ #if __OHOS__
+@@ -222,6 +230,12 @@ GeneratedAudio OfflineTtsSupertonicImpl::Generate(
+   //   - "silence_duration" (float): Silence in seconds between chunks (default:
+   //   0.3)
+   //   - "seed" (int): RNG seed for reproducibility. -1 = random (default).
++  // LAMI opt-in: emit causal vocoder windows before the rest of the same text
++  // chunk has been decoded. The global duration/text/denoising passes are kept.
++  //   - "lami_vocoder_chunk_frames": compressed latent frames per PCM callback;
++  //     0 preserves the upstream whole-chunk decoder (default).
++  //   - "lami_vocoder_left_context": at least 24 frames for the pinned causal
++  //     Supertonic3 decoder. Its actual receptive field is 20 latent frames.
+ 
+   if (config_.model.debug) {
+     SHERPA_ONNX_LOGE("%s", config.ToString().c_str());
+@@ -274,13 +288,27 @@ GeneratedAudio OfflineTtsSupertonicImpl::Generate(
+     return {};
+   }
+   auto text_chunks = ChunkText(text_single, max_len);
++  int32_t vocoder_chunk_frames =
++      config.GetExtraInt("lami_vocoder_chunk_frames", 0);
++  int32_t vocoder_left_context =
++      config.GetExtraInt("lami_vocoder_left_context", 24);
++  if (vocoder_chunk_frames < 0 || vocoder_chunk_frames > 256 ||
++      (vocoder_chunk_frames > 0 &&
++       (vocoder_left_context < 24 || vocoder_left_context > 256))) {
++    SHERPA_ONNX_LOGE("Invalid LAMI vocoder window/context configuration");
++    return {};
++  }
+   return ProcessChunksAndConcatenate(text_chunks, lang, sid, num_steps, speed,
+-                                     silence_duration, seed, callback);
++                                     silence_duration, seed, callback,
++                                     vocoder_chunk_frames,
++                                     vocoder_left_context);
+ }
+ 
+ GeneratedAudio OfflineTtsSupertonicImpl::Process(
+     const std::string &text, const std::string &lang, int64_t sid,
+-    int32_t num_steps, float speed, NormalDataGenerator &gen) const {
++    int32_t num_steps, float speed, NormalDataGenerator &gen,
++    GeneratedAudioCallback callback, int32_t vocoder_chunk_frames,
++    int32_t vocoder_left_context) const {
+   const auto &cfg = model_->GetConfig();
+   StyleSliceView slice = GetStyleSliceForSid(sid);
+   const int32_t bsz = 1;
+@@ -475,6 +503,62 @@ GeneratedAudio OfflineTtsSupertonicImpl::Process(
+                 latent_total_size * sizeof(float));
+   }
+ 
++  if (callback && vocoder_chunk_frames > 0) {
++    // These models expand each compressed latent frame into six 512-sample
++    // frames. All vocoder convolutions are causal, LayerNorm is per time-step,
++    // and BatchNorm uses frozen statistics. Left context therefore suffices:
++    // no future decoded PCM is needed, and no cross-fade changes the waveform.
++    if (cfg.ae.base_chunk_size != 512 || cfg.ttl.chunk_compress_factor != 6 ||
++        cfg.ttl.latent_dim != 24) {
++      SHERPA_ONNX_LOGE("LAMI window decoding requires the pinned Supertonic3 layout");
++      return {};
++    }
++    const int64_t samples_per_latent = chunk_size;
++    const int64_t total_samples = std::min<int64_t>(
++        wav_lengths[0], static_cast<int64_t>(latent_len) * samples_per_latent);
++    GeneratedAudio result;
++    result.sample_rate = cfg.ae.sample_rate;
++    result.samples.reserve(static_cast<size_t>(total_samples));
++    for (int32_t first = 0; first < latent_len;
++         first += vocoder_chunk_frames) {
++      const int32_t last = std::min(first + vocoder_chunk_frames, latent_len);
++      const int32_t window_first = std::max(0, first - vocoder_left_context);
++      const int32_t window_len = last - window_first;
++      std::vector<float> window(static_cast<size_t>(latent_dim) * window_len);
++      for (int32_t channel = 0; channel < latent_dim; ++channel) {
++        std::copy_n(xt_flat.data() + static_cast<size_t>(channel) * latent_len +
++                        window_first,
++                    window_len,
++                    window.data() + static_cast<size_t>(channel) * window_len);
++      }
++      std::vector<int64_t> window_shape = {1, latent_dim, window_len};
++      Ort::Value window_tensor = Ort::Value::CreateTensor<float>(
++          memory_info_, window.data(), window.size(), window_shape.data(),
++          window_shape.size());
++      Ort::Value window_audio = model_->RunVocoder(std::move(window_tensor));
++      const size_t actual_size =
++          window_audio.GetTensorTypeAndShapeInfo().GetElementCount();
++      const int64_t expected_size =
++          static_cast<int64_t>(window_len) * samples_per_latent;
++      if (actual_size != static_cast<size_t>(expected_size)) {
++        SHERPA_ONNX_LOGE("Unexpected LAMI window vocoder output size: %zu", actual_size);
++        return {};
++      }
++      const int64_t offset =
++          static_cast<int64_t>(first - window_first) * samples_per_latent;
++      const int64_t available = std::min<int64_t>(
++          static_cast<int64_t>(last - first) * samples_per_latent,
++          total_samples - static_cast<int64_t>(result.samples.size()));
++      if (available <= 0) break;
++      const float *samples = window_audio.GetTensorData<float>() + offset;
++      result.samples.insert(result.samples.end(), samples, samples + available);
++      // This callback runs before the next vocoder invocation, not after a
++      // complete waveform has been created and subsequently subdivided.
++      callback(samples, static_cast<int32_t>(available),
++               static_cast<float>(result.samples.size()) / total_samples);
++    }
++    return result;
++  }
+   Ort::Value latent_tensor = Ort::Value::CreateTensor<float>(
+       memory_info_, xt_flat.data(), xt_flat.size(), latent_shape.data(),
+       latent_shape.size());
+@@ -547,19 +631,27 @@ GeneratedAudio OfflineTtsSupertonicImpl::Process(
+ GeneratedAudio OfflineTtsSupertonicImpl::ProcessChunksAndConcatenate(
+     const std::vector<std::string> &text_chunks, const std::string &lang,
+     int64_t sid, int32_t num_steps, float speed, float silence_duration,
+-    int32_t seed, GeneratedAudioCallback callback) const {
++    int32_t seed, GeneratedAudioCallback callback,
++    int32_t vocoder_chunk_frames, int32_t vocoder_left_context) const {
+   NormalDataGenerator gen(0, 1, seed);
+   GeneratedAudio result;
+   std::vector<std::vector<float>> chunk_samples;
+   chunk_samples.reserve(text_chunks.size());
+   int32_t num_chunks = static_cast<int32_t>(text_chunks.size());
+   for (int32_t i = 0; i < num_chunks; ++i) {
+-    auto chunk_result =
+-        Process(text_chunks[i], lang, sid, num_steps, speed, gen);
++    GeneratedAudioCallback window_callback = nullptr;
++    if (callback && vocoder_chunk_frames > 0) {
++      window_callback = [&, i](const float *samples, int32_t n, float progress) {
++        return callback(samples, n, (i + progress) / num_chunks);
++      };
++    }
++    auto chunk_result = Process(text_chunks[i], lang, sid, num_steps, speed, gen,
++                                window_callback, vocoder_chunk_frames,
++                                vocoder_left_context);
+     if (chunk_result.samples.empty()) {
+       continue;
+     }
+-    if (callback) {
++    if (callback && vocoder_chunk_frames == 0) {
+       float progress =
+           static_cast<float>(i + 1) / static_cast<float>(num_chunks);
+       callback(chunk_result.samples.data(), chunk_result.samples.size(),
+diff --git a/sherpa-onnx/csrc/offline-tts-supertonic-impl.h b/sherpa-onnx/csrc/offline-tts-supertonic-impl.h
+index d326054..bba234b 100644
+--- a/sherpa-onnx/csrc/offline-tts-supertonic-impl.h
++++ b/sherpa-onnx/csrc/offline-tts-supertonic-impl.h
+@@ -46,12 +46,16 @@ class OfflineTtsSupertonicImpl : public OfflineTtsImpl {
+  private:
+   GeneratedAudio Process(const std::string &text, const std::string &lang,
+                          int64_t sid, int32_t num_steps, float speed,
+-                         NormalDataGenerator &gen) const;
++                         NormalDataGenerator &gen,
++                         GeneratedAudioCallback callback,
++                         int32_t vocoder_chunk_frames,
++                         int32_t vocoder_left_context) const;
+ 
+   GeneratedAudio ProcessChunksAndConcatenate(
+       const std::vector<std::string> &text_chunks, const std::string &lang,
+       int64_t sid, int32_t num_steps, float speed, float silence_duration,
+-      int32_t seed, GeneratedAudioCallback callback) const;
++      int32_t seed, GeneratedAudioCallback callback,
++      int32_t vocoder_chunk_frames, int32_t vocoder_left_context) const;
+ 
+   void InitVoiceStyle(const std::vector<char> &buf);
+ 
+diff --git a/sherpa-onnx/jni/sherpa-onnx-symbols.exp b/sherpa-onnx/jni/sherpa-onnx-symbols.exp
+index e7c74f3..885b51e 100644
+--- a/sherpa-onnx/jni/sherpa-onnx-symbols.exp
++++ b/sherpa-onnx/jni/sherpa-onnx-symbols.exp
+@@ -1,4 +1,5 @@
+ _Java_com_k2fsa_sherpa_onnx_AudioTagging_compute
++_Java_io_github_ninbyo02_lami_tts_LamiSupertonicStreamingRuntime_version
+ _Java_com_k2fsa_sherpa_onnx_AudioTagging_createStream
+ _Java_com_k2fsa_sherpa_onnx_AudioTagging_delete
+ _Java_com_k2fsa_sherpa_onnx_AudioTagging_newFromAsset
+diff --git a/sherpa-onnx/jni/sherpa-onnx-symbols.lds b/sherpa-onnx/jni/sherpa-onnx-symbols.lds
+index 4931fa0..383852f 100644
+--- a/sherpa-onnx/jni/sherpa-onnx-symbols.lds
++++ b/sherpa-onnx/jni/sherpa-onnx-symbols.lds
+@@ -1,6 +1,7 @@
+ {
+   global:
+     Java_com_k2fsa_sherpa_onnx*;
++    Java_io_github_ninbyo02_lami_tts_LamiSupertonicStreamingRuntime_version;
+   local:
+     *;
+ };

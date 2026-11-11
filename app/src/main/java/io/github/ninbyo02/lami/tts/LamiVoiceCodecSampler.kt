@@ -9,7 +9,6 @@ internal class LamiVoiceCodecSampler(seed: Long = 42L, private val topK: Int = 5
     private val random = Random(seed)
     private val tokens = IntArray(topK)
     private val scores = DoubleArray(topK)
-    private val weights = DoubleArray(topK)
 
     private fun worse(aScore: Double, aToken: Int, bScore: Double, bToken: Int): Boolean {
         val comparison = java.lang.Double.compare(aScore, bScore)
@@ -55,11 +54,12 @@ internal class LamiVoiceCodecSampler(seed: Long = 42L, private val topK: Int = 5
         for (end in size - 1 downTo 1) { swap(0, end); siftDown(end) }
         val peak = scores[0]
         var sum = 0.0
-        for (i in 0 until size) { weights[i] = exp(scores[i] - peak); sum += weights[i] }
+        // Sorted scores are no longer needed; reuse their storage for weights.
+        for (i in 0 until size) { scores[i] = exp(scores[i] - peak); sum += scores[i] }
         val target = random.nextDouble() * sum
         var cumulative = 0.0
         for (i in 0 until size) {
-            cumulative += weights[i]
+            cumulative += scores[i]
             if (target < cumulative) return tokens[i]
         }
         return tokens[size - 1]

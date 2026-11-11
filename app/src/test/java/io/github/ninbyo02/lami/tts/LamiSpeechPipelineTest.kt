@@ -1,18 +1,53 @@
 package io.github.ninbyo02.lami.tts
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LamiSpeechPipelineTest {
+    @Test fun `immediate playback cannot finish before enqueue reserves busy ownership`() = runTest {
+        val busy = mutableListOf<Boolean>()
+        val played = mutableListOf<String>()
+        val pipeline = LamiSpeechPipeline(
+            CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler)),
+            busy::add, prepare = { it }, play = { played += it },
+        )
+        pipeline.enqueue("first")
+        pipeline.enqueue("after idle")
+
+        assertEquals(listOf("first", "after idle"), played)
+        assertEquals(listOf(true, false, true, false), busy)
+        pipeline.stop()
+        pipeline.awaitCleanup()
+    }
+
+    @Test fun `busy listener can stop before queued work becomes visible to the worker`() = runTest {
+        val busy = mutableListOf<Boolean>()
+        val played = mutableListOf<String>()
+        lateinit var pipeline: LamiSpeechPipeline<String>
+        pipeline = LamiSpeechPipeline(backgroundScope, { active ->
+            busy += active
+            if (active) pipeline.stop()
+        }, prepare = { it }, play = { played += it })
+
+        pipeline.enqueue("cancel on busy")
+        runCurrent()
+
+        assertTrue(played.isEmpty())
+        assertEquals(listOf(true, false), busy)
+    }
+
     @Test fun `voice input cleanup barrier waits for playback release`() = runTest {
         val release = CompletableDeferred<Unit>()
         var microphoneAllowed = false

@@ -3,6 +3,7 @@ package io.github.ninbyo02.lami.tts
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertNotSame
 import org.junit.Test
 import kotlin.math.roundToInt
 
@@ -19,6 +20,25 @@ class UsbSpeechPcmTest {
     fun mono24kDuplicatesChannelsAndInterpolatesWithoutAmplification() {
         assertArrayEquals(shortArrayOf(0, 0, 500, 500, 1000, 1000, 1000, 1000),
             UsbSpeechPcm.stereo48k(shortArrayOf(0, 1000), 24000, 1))
+    }
+
+    @Test
+    fun mono48kMatchesLegacyForEveryShortValueWithIndependentStorage() {
+        val samples = ShortArray(65536) { (it + Short.MIN_VALUE).toShort() }
+        val original = samples.copyOf()
+        val converted = UsbSpeechPcm.stereo48k(samples, 48_000, 1)
+        assertNotSame(samples, converted)
+        assertArrayEquals(legacyStereo48k(samples, 48_000, 1), converted)
+        assertArrayEquals(original, samples)
+        assertArrayEquals(shortArrayOf(123, 123),
+            UsbSpeechPcm.stereo48k(shortArrayOf(123), 48_000, 1))
+        converted[0] = 123
+        assertArrayEquals(original, samples)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun oversizedMono48kIsStillRejected() {
+        UsbSpeechPcm.stereo48k(ShortArray(2_880_001), 48_000, 1)
     }
 
     @Test

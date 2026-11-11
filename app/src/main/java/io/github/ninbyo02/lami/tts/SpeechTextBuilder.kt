@@ -16,8 +16,11 @@ class SpeechTextBuilder private constructor() {
         private val fencedCodeRegex = Regex("```\\s*([^\\n`]*)\\n?[\\s\\S]*?```")
         private val inlineCodeRegex = Regex("`([^`]+)`")
         private val rawUrlRegex = Regex("(https?://\\S+|www\\.\\S+)")
+        private val inlineFunctionCallRegex = Regex("^[A-Za-z_][\\w.]*\\(\\)$")
+        private val inlineCommandRegex = Regex("^[a-zA-Z]{2,}(?:\\s+[\\w./:-]+){1,3}$")
         private val markdownDecorationLineRegex = Regex("(?m)^\\s*([#=\\-*`_])\\1{2,}\\s*$")
         private val atxHeadingRegex = Regex("^(\\s{0,3})#{1,6}\\s+(.+?)\\s*$")
+        private val terminalHeadingNoteRegex = Regex("^(.+?)（([^（）\\n]+)）(?:。)?$")
         private val repeatedSymbolRegex = Regex("([=\\-*#])\\1{2,}")
         private val multiBlankLineRegex = Regex("\\n{3,}")
         private val unorderedListMarkerRegex = Regex("^(\\s*)[•\\-*]\\s+")
@@ -56,7 +59,7 @@ class SpeechTextBuilder private constructor() {
             val urlConverted = rawUrlRegex.replace(inlineConverted, "リンクがあります")
             val lineBreakNormalized = urlConverted.replace("\r\n", "\n")
             val headingEmojiNormalized = removeLeadingDecorativeEmoji(lineBreakNormalized)
-            val atxHeadingStripped = stripAtxHeadings(headingEmojiNormalized)
+            val atxHeadingStripped = prepareHeadingsForSpeech(headingEmojiNormalized)
             val headingEmojiRenormalized = removeLeadingDecorativeEmoji(atxHeadingStripped)
             val emphasisStripped = stripMarkdownEmphasis(headingEmojiRenormalized)
 
@@ -108,10 +111,10 @@ class SpeechTextBuilder private constructor() {
             if (rawUrlRegex.matches(inlineCode)) {
                 return "リンク"
             }
-            if (Regex("^[A-Za-z_][\\w.]*\\(\\)$").matches(inlineCode)) {
+            if (inlineFunctionCallRegex.matches(inlineCode)) {
                 return "関数呼び出し"
             }
-            if (Regex("^[a-zA-Z]{2,}(?:\\s+[\\w./:-]+){1,3}$").matches(inlineCode)) {
+            if (inlineCommandRegex.matches(inlineCode)) {
                 return "$inlineCode コマンド"
             }
             return if (inlineCode.length <= 20) inlineCode else "コード"
@@ -137,13 +140,25 @@ class SpeechTextBuilder private constructor() {
                 }
         }
 
-        private fun stripAtxHeadings(text: String): String {
+        internal fun stripAtxHeadings(text: String): String = mapAtxHeadings(text) { it }
+
+        /** A heading's trailing parenthetical is a spoken aside, not a compound noun. */
+        internal fun prepareHeadingsForSpeech(text: String): String = mapAtxHeadings(text) { body ->
+            val note = terminalHeadingNoteRegex.matchEntire(body)
+            if (note == null) body else {
+                val title = note.groupValues[1].trimEnd().trimEnd('、', '：', ':')
+                val aside = note.groupValues[2].trim()
+                if (title.isBlank() || aside.isBlank()) body else "$title、$aside。"
+            }
+        }
+
+        private fun mapAtxHeadings(text: String, transform: (String) -> String): String {
             return text
                 .lineSequence()
                 .joinToString("\n") { line ->
                     val match = atxHeadingRegex.matchEntire(line)
                     if (match != null) {
-                        match.groupValues[1] + match.groupValues[2]
+                        match.groupValues[1] + transform(match.groupValues[2])
                     } else {
                         line
                     }

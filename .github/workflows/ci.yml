@@ -115,8 +115,8 @@ jobs:
           cargo clippy --offline --locked --manifest-path diagnostics/resident-cp-rust/Cargo.toml --features ffi-host-test --all-targets -- -D warnings
           python3 scripts/check_resident_cp_jni.py
 
-      - name: Assemble standard debug non-NPU smoke APK
-        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:assembleStandardDebug --stacktrace
+      - name: Assemble standard debug smoke and GenieX companion APKs
+        run: ./gradlew --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8" -Pkotlin.compiler.execution.strategy=in-process -Plami.allowMissingQairt244Jni=true :app:assembleStandardDebug :geniex-engine:assembleDebug --stacktrace
 
       - name: Document standard debug native coverage
         run: |
@@ -147,7 +147,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: lami-standard-debug-apk
-          path: app/build/outputs/apk/standard/debug/*.apk
+          path: |
+            app/build/outputs/apk/standard/debug/*.apk
+            geniex-engine/build/outputs/apk/debug/*.apk
           if-no-files-found: warn
           retention-days: 3
 

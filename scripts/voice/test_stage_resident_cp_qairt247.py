@@ -1,16 +1,227 @@
+import hashlib
+import copy
+import shutil
+import struct
+from unittest.mock import patch
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from stage_resident_cp_qairt247 import stage, inspect_apk, RUNTIME, JNI
+from stage_resident_cp_qairt247 import stage, inspect_apk, RUNTIME, JNI, FULL_RUNTIME, SKELETON
+
+def jni_header(machine=183, elf_class=2, byte_order=1, kind=3):
+    header = bytearray(64)
+    header[:7] = bytes((127, 69, 76, 70, elf_class, byte_order, 1))
+    struct.pack_into('<HHI', header, 16, kind, machine, 1)
+    struct.pack_into('<H', header, 52, 64)
+    return bytes(header)
+
 
 class RuntimeStageTest(unittest.TestCase):
+    def setUp(self):
+        # Runtime/ABI fixtures are intentionally not compiled JNI. Exercise the
+        # real receipt verifier separately in NativeBuildProvenanceTest.
+        self.receipt_check = patch('stage_resident_cp_qairt247.verified_build_receipt',
+                                  side_effect=lambda jni, sdk: {
+                                      'schema': 2,
+                                      'jni_sha256': hashlib.sha256(jni.read_bytes()).hexdigest()})
+        self.verify_receipt = self.receipt_check.start()
+        self.addCleanup(self.receipt_check.stop)
+        self.pins = {}
+        self.patch = patch('stage_resident_cp_qairt247.SDK_PINS', self.pins)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+
+    def evidence(self, sdk):
+        (sdk/'sdk.yaml').write_text('product: QAIRT\nversion: 2.47.0\nbuild_id: 260601114230\n')
+        for path in (sdk/'lib').rglob('*.so'):
+            self.pins[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def test_ambiguous_sdk_version_evidence_rejected_before_staging(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            runtime = sdk/'lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(sdk)
+            metadata = sdk/'sdk.yaml'
+            valid = metadata.read_text()
+            for key, wrong in (('product', 'OTHER'), ('version', '2.44.0'),
+                               ('build_id', 'legacy')):
+                for declaration in (key + ': ' + wrong,
+                                    '"' + key + '": ' + wrong,
+                                    "'" + key + "': " + wrong,
+                                    '  ' + key + ': ' + wrong):
+                    with self.subTest(declaration=declaration):
+                        metadata.write_text(valid + declaration + '\n')
+                        destination = base/'rejected'
+                        with self.assertRaisesRegex(ValueError, 'version evidence: ' + key):
+                            stage(sdk, jni, destination)
+                        self.assertFalse(destination.exists())
+            # A value on another line must not be consumed by whitespace matching.
+            metadata.write_text(valid.replace('version: 2.47.0', 'version:\n2.47.0'))
+            with self.assertRaisesRegex(ValueError, 'version evidence: version'):
+                stage(sdk, jni, base/'rejected')
+            self.assertFalse((base/'rejected').exists())
+            # Preserve the official metadata's nested OS mapping and comments.
+            metadata.write_text('# SDK metadata\nos:\n  Ubuntu: 22.04\n' + valid)
+            self.assertEqual(stage(sdk, jni, base/'valid')['profile'], 'diagnostic')
+
+    def test_full_stage_rejects_legacy_jni_before_renaming(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            legacy = base/'liblami_QAIRT244_npu_jni.so'
+            legacy.write_bytes(b'legacy JNI')
+            alias = base/JNI
+            alias.symlink_to(legacy.name)
+            # Reject both the explicit name and a neutral symlink alias before
+            # creating output that would hide the known legacy identity.
+            for jni in (legacy, alias):
+                with self.subTest(jni=jni):
+                    destination = base/'rejected'
+                    with self.assertRaisesRegex(ValueError, 'Legacy QAIRT JNI input'):
+                        stage(sdk, jni, destination, 'voice-trial')
+                    self.assertFalse(destination.exists())
+            manifest = stage(sdk, legacy, base/'diagnostic')
+            self.assertEqual(manifest['profile'], 'diagnostic')
+            self.assertIn('unverified', manifest['jni_provenance'])
+
+    def test_changed_copy_cannot_receive_a_verified_manifest(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            self.evidence(sdk)
+            copyfile = shutil.copyfile
+
+            for index, changed in enumerate((*FULL_RUNTIME, SKELETON, JNI)):
+                with self.subTest(library=changed):
+                    destination = base/('stage-' + str(index))
+
+                    def changed_copy(src, dst):
+                        result = copyfile(src, dst)
+                        if src.name == changed:
+                            dst.write_bytes(b'changed after input verification')
+                        return result
+
+                    with patch('stage_resident_cp_qairt247.shutil.copyfile',
+                               side_effect=changed_copy):
+                        with self.assertRaisesRegex(ValueError, 'Staged copy/hash mismatch'):
+                            stage(sdk, jni, destination, 'voice-trial')
+                    self.assertFalse((destination/'manifest.json').exists())
+
+            # Failed independent stages leave the inputs usable and unchanged.
+            manifest = stage(sdk, jni, base/'valid', 'voice-trial')
+            for name, digest in manifest['files'].items():
+                self.assertEqual(hashlib.sha256((base/'valid'/name).read_bytes()).hexdigest(),
+                                 digest)
+
+    def test_voice_trial_requires_receipt_and_binds_it_before_creating_output(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            destination = base/'stage'
+            # Reach the actual builder verifier: missing receipts fail before
+            # SDK/toolchain checks and before any staging output is created.
+            from build_resident_cp_android_jni import verify_jni
+            self.verify_receipt.side_effect = verify_jni
+            with self.assertRaises(FileNotFoundError):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            self.verify_receipt.side_effect = ValueError('JNI provenance mismatch; rebuild required')
+            with self.assertRaisesRegex(ValueError, 'rebuild required'):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            self.verify_receipt.side_effect = None
+            self.verify_receipt.return_value = {'jni_sha256': '0'*64}
+            with self.assertRaisesRegex(ValueError, 'changed during build provenance'):
+                stage(sdk, jni, destination, 'voice-trial')
+            self.assertFalse(destination.exists())
+            receipt = {'schema': 2, 'jni_sha256': hashlib.sha256(jni.read_bytes()).hexdigest()}
+            self.verify_receipt.return_value = receipt
+            manifest = stage(sdk, jni, destination, 'voice-trial')
+            self.assertEqual(manifest['jni_build_receipt'], receipt)
+            self.assertIn('device unverified', manifest['jni_provenance'])
+            self.verify_receipt.assert_called_with(jni, sdk)
+            self.verify_receipt.reset_mock()
+            diagnostic = stage(sdk, jni, base/'diagnostic')
+            self.verify_receipt.assert_not_called()
+            self.assertNotIn('jni_build_receipt', diagnostic)
+
+    def test_full_profile_rejects_wrong_jni_abi_at_staging_and_inspection(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skeleton = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            self.evidence(sdk)
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            manifest = stage(sdk, jni, base/'valid', 'voice-trial')
+            invalid = (b'not ELF', jni_header()[:63], jni_header(machine=62),
+                       jni_header(machine=164), jni_header(elf_class=1),
+                       jni_header(byte_order=2), jni_header(kind=2))
+            for payload in invalid:
+                with self.subTest(header=payload):
+                    jni.write_bytes(payload)
+                    with self.assertRaisesRegex(ValueError, 'AArch64 ELF64'):
+                        stage(sdk, jni, base/'rejected', 'voice-trial')
+                    self.assertFalse((base/'rejected').exists())
+                    # A caller-provided matching hash cannot bless the wrong ABI.
+                    candidate = copy.deepcopy(manifest)
+                    candidate['files'][JNI] = hashlib.sha256(payload).hexdigest()
+                    apk = base/'wrong.apk'
+                    with zipfile.ZipFile(apk, 'w') as z:
+                        for name in candidate['files']:
+                            prefix = 'assets/' if name.startswith('hexagon-v79/') else 'lib/arm64-v8a/'
+                            z.writestr(prefix+name, payload if name == JNI else
+                                       (base/'valid'/name).read_bytes())
+                    with self.assertRaisesRegex(ValueError, 'AArch64 ELF64'):
+                        inspect_apk(apk, candidate)
+
     def test_staging_and_legacy_apk_rejected(self):
         with tempfile.TemporaryDirectory() as root:
             base=Path(root)
             sdk=base/'sdk'; runtime=sdk/'lib/aarch64-android'; runtime.mkdir(parents=True)
             for name in RUNTIME: (runtime/name).write_bytes(('247:'+name).encode())
             jni=base/JNI; jni.write_bytes(b'arm64')
+            self.evidence(sdk)
             m=stage(sdk,jni,base/'stage')
             with self.assertRaises(ValueError): stage(sdk,jni,base/'stage')
             apk=base/'wrong.apk'
@@ -23,6 +234,7 @@ class RuntimeStageTest(unittest.TestCase):
             base=Path(root); runtime=base/'sdk/lib/aarch64-android';runtime.mkdir(parents=True)
             for name in RUNTIME: (runtime/name).write_bytes(name.encode())
             jni=base/JNI;jni.write_bytes(b'jni')
+            self.evidence(base/'sdk')
             m=stage(base/'sdk',jni,base/'stage')
             apk=base/'ok.apk'
             with zipfile.ZipFile(apk,'w') as z:
@@ -30,4 +242,159 @@ class RuntimeStageTest(unittest.TestCase):
             self.assertTrue(inspect_apk(apk,m))
             with zipfile.ZipFile(apk,'a') as z: z.writestr('lib/arm64-v8a/libcdsprpc.so',b'x')
             with self.assertRaisesRegex(ValueError,'bundled'): inspect_apk(apk,m)
+    def test_full_profile_and_fail_closed_inputs(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            sdk = base/'sdk'
+            for name in FULL_RUNTIME:
+                path = sdk/'lib/aarch64-android'/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(name.encode())
+            skel = sdk/'lib/hexagon-v79/unsigned'/SKELETON
+            skel.parent.mkdir(parents=True)
+            skel.write_bytes(b'hexagon')
+            jni = base/JNI
+            jni.write_bytes(jni_header())
+            with self.assertRaisesRegex(ValueError, 'version evidence'):
+                stage(sdk, jni, base/'missing')
+            self.evidence(sdk)
+            metadata = sdk/'sdk.yaml'
+            valid = metadata.read_text()
+            metadata.write_text(valid.replace('2.47.0', '2.44.0'))
+            with self.assertRaisesRegex(ValueError, 'version evidence'):
+                stage(sdk, jni, base/'wrong')
+            metadata.write_text(valid)
+            original = skel.read_bytes()
+            skel.write_bytes(b'244')
+            with self.assertRaisesRegex(ValueError, 'version/hash mismatch'):
+                stage(sdk, jni, base/'mixed', 'voice-trial')
+            skel.write_bytes(original)
+            m = stage(sdk, jni, base/'stage', 'voice-trial')
+            self.assertFalse((base/'stage'/SKELETON).exists())
+            apk = base/'full.apk'
+
+            def package(extra=None):
+                with zipfile.ZipFile(apk, 'w') as z:
+                    for name in m['files']:
+                        prefix = 'assets/' if name.startswith('hexagon-v79/') else 'lib/arm64-v8a/'
+                        z.write(base/'stage'/name, prefix+name)
+                    if extra:
+                        z.writestr(extra, b'legacy')
+
+            package()
+            self.assertTrue(inspect_apk(apk, m))
+            # Matching APK/manifest hashes alone must not bypass the build
+            # receipt required by full staging. Diagnostic API remains separate.
+            for receipt in (None, [], {}, {'schema': 1, 'jni_sha256': m['files'][JNI]},
+                            {'schema': 2, 'jni_sha256': '0'*64}):
+                candidate = copy.deepcopy(m)
+                candidate['jni_build_receipt'] = receipt
+                with self.subTest(receipt=receipt):
+                    with self.assertRaisesRegex(ValueError, 'JNI build receipt'):
+                        inspect_apk(apk, candidate)
+            candidate = copy.deepcopy(m)
+            del candidate['jni_build_receipt']
+            with self.assertRaisesRegex(ValueError, 'JNI build receipt'):
+                inspect_apk(apk, candidate)
+            for extra in ('lib/arm64-v8a/liblami_qairt244_npu_jni.so',
+                          'lib/arm64-v8a/libQnnCpu.so',
+                          'lib/arm64-v8a/'+SKELETON):
+                package(extra)
+                with self.assertRaisesRegex(ValueError, 'Unpinned/legacy'):
+                    inspect_apk(apk, m)
+            package('lib/arm64-v8a/'+JNI)
+            with self.assertRaisesRegex(ValueError, 'Duplicate'):
+                inspect_apk(apk, m)
+            package()
+            m['files']['libQnnGpu.so'] = '0'*64
+            with self.assertRaisesRegex(ValueError, 'Unpinned'):
+                inspect_apk(apk, m)
+
+    def test_diagnostic_manifest_cannot_override_sdk_pins_or_skip_libraries(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            runtime = base/'sdk/lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(base/'sdk')
+            manifest = stage(base/'sdk', jni, base/'stage')
+            # Existing callers may omit the profile field.
+            del manifest['profile']
+            apk = base/'diagnostic.apk'
+            with zipfile.ZipFile(apk, 'w') as z:
+                for name in manifest['files']:
+                    z.write(base/'stage'/name, 'lib/arm64-v8a/'+name)
+            self.assertTrue(inspect_apk(apk, manifest))
+            cases = []
+            unknown = copy.deepcopy(manifest)
+            unknown['profile'] = 'voice_trial'
+            cases.append((unknown, 'Unknown staging profile'))
+            for name in manifest['files']:
+                missing = copy.deepcopy(manifest)
+                del missing['files'][name]
+                cases.append((missing, 'Incomplete diagnostic manifest'))
+            invalid_jni = copy.deepcopy(manifest)
+            invalid_jni['files'][JNI] = None
+            cases.append((invalid_jni, 'Invalid JNI hash'))
+            for candidate, error in cases:
+                with self.subTest(error=error, manifest=candidate):
+                    with self.assertRaisesRegex(ValueError, error):
+                        inspect_apk(apk, candidate)
+            # Even a manifest matching the APK bytes cannot bless an unpinned runtime.
+            manifest['files'][RUNTIME[0]] = hashlib.sha256(b'244').hexdigest()
+            with zipfile.ZipFile(apk, 'w') as z:
+                for name in manifest['files']:
+                    z.writestr('lib/arm64-v8a/'+name,
+                               b'244' if name == RUNTIME[0] else (base/'stage'/name).read_bytes())
+            with self.assertRaisesRegex(ValueError, 'Unpinned QAIRT manifest'):
+                inspect_apk(apk, manifest)
+
+    def test_diagnostic_checks_optional_qnn_libraries_without_requiring_them(self):
+        with tempfile.TemporaryDirectory() as root:
+            base = Path(root)
+            runtime = base/'sdk/lib/aarch64-android'
+            runtime.mkdir(parents=True)
+            for name in FULL_RUNTIME:
+                (runtime/name).write_bytes(name.encode())
+            skeleton = base/'sdk/lib/hexagon-v79/unsigned'/SKELETON
+            skeleton.parent.mkdir(parents=True)
+            skeleton.write_bytes(b'hexagon')
+            jni = base/JNI
+            jni.write_bytes(b'jni')
+            self.evidence(base/'sdk')
+            manifest = stage(base/'sdk', jni, base/'stage')
+            del manifest['profile']  # Preserve the original diagnostic API.
+            apk = base/'diagnostic.apk'
+
+            def package(extra, payload):
+                with zipfile.ZipFile(apk, 'w') as z:
+                    for name in manifest['files']:
+                        z.write(base/'stage'/name, 'lib/arm64-v8a/'+name)
+                    z.writestr(extra, payload)
+
+            for name in set(FULL_RUNTIME) - set(RUNTIME):
+                with self.subTest(library=name):
+                    path = 'lib/arm64-v8a/'+name
+                    package(path, name.encode())
+                    self.assertTrue(inspect_apk(apk, manifest))
+                    package(path, b'244')
+                    with self.assertRaisesRegex(ValueError, 'version/hash mismatch'):
+                        inspect_apk(apk, manifest)
+            package('assets/hexagon-v79/'+SKELETON, b'hexagon')
+            self.assertTrue(inspect_apk(apk, manifest))
+            package('assets/hexagon-v79/'+SKELETON, b'244')
+            with self.assertRaisesRegex(ValueError, 'version/hash mismatch'):
+                inspect_apk(apk, manifest)
+            for path in ('lib/arm64-v8a/'+SKELETON,
+                         'lib/armeabi-v7a/libQnnGpu.so',
+                         'lib/arm64-v8a/libQnnCpu.so',
+                         'lib/arm64-v8a/libqnnGpu.so'):
+                package(path, b'unpinned')
+                with self.subTest(path=path):
+                    with self.assertRaisesRegex(ValueError, 'Unpinned/legacy'):
+                        inspect_apk(apk, manifest)
+
 if __name__=='__main__': unittest.main()

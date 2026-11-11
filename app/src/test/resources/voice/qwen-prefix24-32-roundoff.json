@@ -1,0 +1,174 @@
+{
+  "decoder_sha256": "05288ee2c763f80067139019ca66915bad150de705acc940200735f653c1b7c5",
+  "code_layout": "channel_major_16_by_frames_big_endian_int64",
+  "pcm_layout": "mono_big_endian_float32_24000hz",
+  "frames": 32,
+  "previous_samples": 46080,
+  "next_samples": 61440,
+  "changed_samples": 15098,
+  "max_abs": 3.7848949432373047e-06,
+  "rms": 1.788268561204451e-07,
+  "first_changed": 30721,
+  "last_changed": 46079,
+  "max_difference_index": 38736,
+  "per_frame": [
+    {
+      "frame": 0,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 1,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 2,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 3,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 4,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 5,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 6,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 7,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 8,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 9,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 10,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 11,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 12,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 13,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 14,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 15,
+      "changed_samples": 0,
+      "max_abs": 0,
+      "rms": 0
+    },
+    {
+      "frame": 16,
+      "changed_samples": 1880,
+      "max_abs": 2.902001142501831e-06,
+      "rms": 3.54672702407152e-07
+    },
+    {
+      "frame": 17,
+      "changed_samples": 1902,
+      "max_abs": 5.178153514862061e-07,
+      "rms": 9.772887819839061e-08
+    },
+    {
+      "frame": 18,
+      "changed_samples": 1898,
+      "max_abs": 2.421438694000244e-07,
+      "rms": 2.750031749746752e-08
+    },
+    {
+      "frame": 19,
+      "changed_samples": 1867,
+      "max_abs": 2.034008502960205e-06,
+      "rms": 3.002918061881575e-07
+    },
+    {
+      "frame": 20,
+      "changed_samples": 1878,
+      "max_abs": 3.7848949432373047e-06,
+      "rms": 6.287078295815841e-07
+    },
+    {
+      "frame": 21,
+      "changed_samples": 1896,
+      "max_abs": 9.98377799987793e-07,
+      "rms": 1.623334206087819e-07
+    },
+    {
+      "frame": 22,
+      "changed_samples": 1873,
+      "max_abs": 1.1622905731201172e-06,
+      "rms": 3.062876498232522e-07
+    },
+    {
+      "frame": 23,
+      "changed_samples": 1904,
+      "max_abs": 8.717179298400879e-07,
+      "rms": 1.6057450802426967e-07
+    }
+  ],
+  "changed_above_1.0E-7": 6098,
+  "changed_above_1.0E-6": 262,
+  "changed_above_1.0E-5": 0,
+  "changed_above_1.0E-4": 0,
+  "schema": 1,
+  "description": "Android x86_64 decoder-only shape24->32 deterministiccodec evidence; unchanged sample pairs omitted",
+  "fixture_format": "gzip big-endian int32 previous_samples, int32 changed_pairs; each int32 index,float32 previous,float32 next",
+  "fixture_sha256": "20ddfcce210852cc46908efb4abdaabe7ccf501c79e0443de47622868e4dabe1",
+  "previous_pcm_sha256": "c28a57e4fdb9ae83d176bc2d80dcde8859a5953db320c0d7c8a5c7079dbe58a7",
+  "next_pcm_sha256": "27122b8881301415d56a1604d2341912e0f9a4aa7c835a77f0be8c84258f1390",
+  "codec_codes_sha256": "9de2fea49cd1213c8c6b69280e69d57503b88c0cab5f5ed71353c4312667ed11",
+  "code_pattern": "(channel*137+frame*61+17)%2048",
+  "device": "Android x86_64 emulator-5582",
+  "physical_phone": false
+}

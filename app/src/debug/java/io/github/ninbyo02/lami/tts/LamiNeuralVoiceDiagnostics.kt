@@ -43,11 +43,12 @@ internal object LamiNeuralVoiceDiagnostics {
                 } else LamiVoiceDiagnostic.synthesizeText(context, root, requestedText) {
                     report.appendText("$it elapsed_ms=${firstAudioElapsedMs()}\n")
                 }
+                report.appendText("${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}\n")
                 report.appendText("synthesis=success samples=${pcm.size} elapsed_ms=${firstAudioElapsedMs()}\n")
                 val wav = context.filesDir.resolve("neural_tts_last.wav")
                 writeWav(wav, pcm)
                 report.appendText("wav=neural_tts_last.wav\n")
-                LamiPcmPlayer.play(pcm) {
+                LamiPcmPlayer.play(context, pcm) {
                     report.appendText(
                         "${LamiFirstAudioTiming.playbackStartedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}\n",
                     )
@@ -96,6 +97,7 @@ internal object LamiNeuralVoiceDiagnostics {
                         codes.values.forEach(codeBytes::putLong)
                         trace("request=$index codes_sha256=${sha256(codeBytes.array())} frames=${codes.frames}")
                         val full = LamiVoiceDecoderProcess.decode(context, root, codes) { trace("request=$index $it") }
+                        trace("request=$index ${LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}")
                         if (gpuDecoderProbe) LamiVoiceGpuDecoderProbe.compare(context, root, codes) { trace("request=$index $it") }
                         if (pcmThreadProbe) LamiVoicePcmThreadProbe.compare(context, root, codes, full) { trace("request=$index $it") }
                         if (prefixDecodeProbe) LamiVoicePrefixDecodeProbe.compare(context, root, codes, full) { trace("request=$index $it") }
@@ -108,15 +110,16 @@ internal object LamiNeuralVoiceDiagnostics {
                     return index to pcm
                 }
                 suspend fun play(clip: Pair<Int, FloatArray>) {
-                    LamiPcmPlayer.play(clip.second) {
-                        val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
-                            "first-audio request timing missing"
-                        }
+                    val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
+                        "first-audio request timing missing"
+                    }
+                    LamiPcmPlayer.play(context, clip.second) {
+                        val playbackStartedAtNs = SystemClock.elapsedRealtimeNanos()
                         trace(
                             "request=${clip.first} ${
                                 LamiFirstAudioTiming.playbackStartedEvent(
                                     firstAudio,
-                                    SystemClock.elapsedRealtimeNanos(),
+                                    playbackStartedAtNs,
                                 )
                             }",
                         )

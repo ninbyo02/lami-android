@@ -1,0 +1,11 @@
+Japanese compound lexicon and kana-to-IPA mappings adapted from
+Misaki 0.9.4 (https://github.com/hexgrad/misaki), Apache License 2.0.
+
+The lexicon retains entries from misaki/data/ja_words.txt that split
+into multiple tokens using Kuromoji IPADIC 0.9.0. Source lexicon SHA-256
+a93a8e8aee24db307a32becb8bf01c4c2908ecf37e6c91f7a705fafdfeba67ff.
+
+The experimental scratch-origin voice was trained with locally generated
+LAMI speech and synthetic speech generated from selected JSUT transcripts.
+JSUT transcript and pronunciation attribution is included in jsut-LICENSE.txt.
+https://github.com/sarulab-speech/jsut-label

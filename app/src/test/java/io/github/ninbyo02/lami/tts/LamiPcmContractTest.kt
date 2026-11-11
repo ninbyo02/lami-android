@@ -32,4 +32,31 @@ class LamiPcmContractTest {
         assertEquals(4_096, LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 4_096 * Float.SIZE_BYTES))
         assertEquals(1_000, LamiPcmContract.startupPrebufferSamples(totalSamples = 1_000, minBufferBytes = 4_096 * Float.SIZE_BYTES))
     }
+
+    @Test fun startupPrebufferPlanPreservesExistingPrebufferAndBufferSizing() {
+        val smallMinimum = LamiPcmContract.startupPrebufferPlan(totalSamples = 24_000, minBufferBytes = 128)
+        assertEquals(1_200, smallMinimum.prebufferSamples)
+        assertEquals(32, smallMinimum.minimumBufferSamples)
+        assertEquals(1_200, smallMinimum.bufferSamples)
+        assertEquals(
+            LamiPcmContract.startupPrebufferSamples(totalSamples = 24_000, minBufferBytes = 128),
+            smallMinimum.prebufferSamples,
+        )
+
+        val platformMinimum = LamiPcmContract.startupPrebufferPlan(
+            totalSamples = 24_000,
+            minBufferBytes = 4_096 * Float.SIZE_BYTES,
+        )
+        assertEquals(4_096, platformMinimum.prebufferSamples)
+        assertEquals(4_096, platformMinimum.minimumBufferSamples)
+        assertEquals(4_096, platformMinimum.bufferSamples)
+
+        val shortClip = LamiPcmContract.startupPrebufferPlan(
+            totalSamples = 1_000,
+            minBufferBytes = 4_096 * Float.SIZE_BYTES,
+        )
+        assertEquals(1_000, shortClip.prebufferSamples)
+        assertEquals(4_096, shortClip.minimumBufferSamples)
+        assertEquals(4_096, shortClip.bufferSamples)
+    }
 }

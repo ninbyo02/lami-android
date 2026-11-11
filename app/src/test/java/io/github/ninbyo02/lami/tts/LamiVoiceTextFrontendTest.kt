@@ -44,6 +44,105 @@ class LamiVoiceTextFrontendTest {
             assertArrayEquals(case.getString("text"), expected, tokenizer.encode(case.getString("wrapped")))
         }
     }
+    @Test fun ordinaryRegionsMatchIndependentlyTokenizedSegments() {
+        // Byte vocabulary covers arbitrary UTF-8 without requiring model files.
+        val visible = ((33..126) + (161..172) + (174..255)).toSet()
+        var extra = 256
+        val vocabulary = (0..255).associate { byte ->
+            String(Character.toChars(if (byte in visible) byte else extra++)) to byte
+        }
+        val tokenizer = LamiQwenTokenizer(vocabulary, emptyMap(), mapOf("<special>" to -1))
+        val segments = listOf("", "a", " leading", "trailing  ", "  ", "\t\r\n",
+            "こんにちは", "e\u0301", "!\n", "\u3000", "'s", "123")
+        for (left in segments) for (right in segments) {
+            val expected = tokenizer.encode(left) + intArrayOf(-1) + tokenizer.encode(right)
+            assertArrayEquals("left=[$left] right=[$right]", expected,
+                tokenizer.encode("$left<special>$right"))
+            assertArrayEquals(expected + intArrayOf(-1),
+                tokenizer.encode("$left<special>$right<special>"))
+        }
+    }
+    @Test fun mergeSelectionMatchesPreviousListBasedAlgorithm() {
+        // Every substring is present, so all possible merge outcomes have token IDs.
+        val words = (1..7).flatMap { length ->
+            (0 until (1 shl length)).map { bits ->
+                (0 until length).joinToString("") { if (bits and (1 shl it) == 0) "a" else "b" }
+            }
+        }
+        val vocabulary = words.withIndex().associate { it.value to it.index }
+        val pairs = words.flatMap { word ->
+            (1 until word.length).map { split -> word.substring(0, split) to word.substring(split) }
+        }.distinct()
+        val random = java.util.Random(42)
+        repeat(12) { round ->
+            val ranks = pairs.filter { random.nextBoolean() }.associateWith {
+                // Include ties and the largest valid rank, as well as absent pairs.
+                if (round == 0) Int.MAX_VALUE else random.nextInt(8)
+            }
+            val tokenizer = LamiQwenTokenizer(vocabulary, ranks, mapOf("<special>" to -1))
+            for (input in words) {
+                var word = input.map(Char::toString)
+                while (word.size > 1) {
+                    val candidate = word.zipWithNext().mapNotNull { pair -> ranks[pair]?.let { pair to it } }
+                        .minByOrNull { it.second }?.first ?: break
+                    val merged = mutableListOf<String>()
+                    var i = 0
+                    while (i < word.size) {
+                        if (i + 1 < word.size && word[i] == candidate.first && word[i + 1] == candidate.second) {
+                            merged += word[i] + word[i + 1]
+                            i += 2
+                        } else {
+                            merged += word[i++]
+                        }
+                    }
+                    word = merged
+                }
+                assertArrayEquals("round=$round input=$input", word.map(vocabulary::getValue).toIntArray(), tokenizer.encode(input))
+            }
+        }
+    }
+    @Test fun repeatedPairMergesPreserveTokenIdsAcrossPassesAndCalls() {
+        val tokenizer = LamiQwenTokenizer(
+            mapOf("a" to 1, "aa" to 2, "aaaa" to 3, "aaaaaaaa" to 4),
+            mapOf(("a" to "a") to 0, ("aa" to "aa") to 1, ("aaaa" to "aaaa") to 2),
+            mapOf("<special>" to -1),
+        )
+        // Repeated pairs, overlapping pairs, and an unmerged tail at each pass.
+        repeat(2) {
+            for (length in 1..63) {
+                val expected = mutableListOf<Int>()
+                repeat(length / 8) { expected += 4 }
+                if (length % 8 >= 4) expected += 3
+                if (length % 4 >= 2) expected += 2
+                if (length % 2 == 1) expected += 1
+                assertArrayEquals("length=$length", expected.toIntArray(), tokenizer.encode("a".repeat(length)))
+            }
+        }
+    }
+    @Test fun repeatedPretokensReuseMergesOnlyWithinOneEncodeCall() {
+        var lookups = 0
+        val entries = mapOf(("a" to "a") to 0, ("aa" to "aa") to 1)
+        val ranks = object : Map<Pair<String, String>, Int> by entries {
+            override fun get(key: Pair<String, String>): Int? {
+                lookups++
+                return entries[key]
+            }
+        }
+        val tokenizer = LamiQwenTokenizer(
+            mapOf("a" to 1, "aa" to 2, "aaaa" to 3, "!" to 4),
+            ranks, mapOf("<special>" to -1),
+        )
+        assertArrayEquals(intArrayOf(3, 1), tokenizer.encode("aaaaa"))
+        val singleWordLookups = lookups
+        assertTrue(singleWordLookups > 0)
+        repeat(2) {
+            lookups = 0
+            // Same pretoken recurs across punctuation and a special-token boundary.
+            assertArrayEquals(intArrayOf(3, 1, -1, 3, 1, 4, -1, 3, 1),
+                tokenizer.encode("aaaaa<special>aaaaa!<special>aaaaa"))
+            assertEquals(singleWordLookups, lookups)
+        }
+    }
     @Test fun japaneseInputEmbeddingsMatchOriginalCustomVoicePreparation() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })
         val cases = fixture.getJSONArray("cases")
@@ -51,6 +150,23 @@ class LamiVoiceTextFrontendTest {
             val case = cases.getJSONObject(i)
             assertPrefillMatchesReference(case, frontend.prepare(case.getString("text")))
         }
+    }
+    @Test fun measuredPrefillBudgetMatchesActualFrontendRowsWithoutReadingWeights() {
+        val tokenizer = tokenizer()
+        val frontend = LamiVoiceTextFrontend(tokenizer, { row("text_rows", it) }, { row("codec_rows", it) })
+        val cases = fixture.getJSONArray("cases")
+        for (index in 0 until cases.length()) {
+            val text = cases.getJSONObject(index).getString("text")
+            assertEquals(text, frontend.prepare(text).prefill.size, LamiVoiceTextFrontend.prefillSize(text, tokenizer))
+        }
+    }
+
+    @Test fun overBudgetInputIsRejectedBeforeAnyEmbeddingRead() {
+        var reads = 0
+        val frontend = LamiVoiceTextFrontend(tokenizer(), { reads++; FloatArray(1024) }, { reads++; FloatArray(1024) })
+        val failure = runCatching { frontend.prepare("はい。".repeat(100), capacity = 128) }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+        assertEquals(0, reads)
     }
     @Test fun repeatedSpeechCodecRowIsLoadedOnceWithoutChangingPrefill() {
         val codecCalls = linkedMapOf<Int, Int>()
@@ -72,6 +188,78 @@ class LamiVoiceTextFrontendTest {
         assertEquals(1, codecCalls.getValue(2149))
         assertEquals(setOf(2154, 2156, 2058, 2157, 3000, 2148, 2149), codecCalls.keys)
         assertTrue(codecCalls.values.all { it == 1 })
+    }
+    @Test fun repeatedTextRowsAreLoadedOncePerRequestWithBitExactPrefill() {
+        val tokenizer = tokenizer()
+        val calls = mutableListOf<Int>()
+        var request = 0
+        fun textRow(id: Int) = FloatArray(1024) { coordinate ->
+            (id % 97 - coordinate + request).toFloat() / 128f
+        }
+        fun codecRow(id: Int) = FloatArray(1024) { coordinate ->
+            (id % 31 + coordinate).toFloat() / 256f
+        }
+        fun add(a: FloatArray, b: FloatArray) = FloatArray(1024) { a[it] + b[it] }
+        val frontend = LamiVoiceTextFrontend(tokenizer, { calls += it; textRow(it) }, ::codecRow)
+        // Digits tokenize individually, demonstrating repeated body tokens.
+        repeat(2) {
+            request++
+            calls.clear()
+            val actual = frontend.prepare("111212111")
+            val ids = tokenizer.encode("<|im_start|>assistant\n111212111<|im_end|>\n<|im_start|>assistant\n")
+            val body = ids.slice(3 until ids.size - 5)
+            assertTrue(body.size > body.distinct().size)
+            val pad = textRow(151671)
+            val speech = codecRow(2148)
+            // Original preparation, including a fresh row for every body token.
+            val expected = mutableListOf<FloatArray>()
+            for (i in 0 until 3) expected += textRow(ids[i])
+            val tags = intArrayOf(2154, 2156, 2058, 2157, 3000, 2148)
+            for (i in tags.indices) expected += add(if (i == tags.lastIndex) textRow(151672) else pad, codecRow(tags[i]))
+            for (id in body) expected += add(textRow(id), speech)
+            expected += add(textRow(151673), speech)
+            expected += add(pad, codecRow(2149))
+
+            assertArrayEquals(ids, actual.tokenIds)
+            assertArrayEquals(pad.map(Float::toRawBits).toIntArray(), actual.pad.map(Float::toRawBits).toIntArray())
+            assertEquals(expected.size, actual.prefill.size)
+            expected.indices.forEach { i ->
+                assertArrayEquals("request=$request row=$i", expected[i].map(Float::toRawBits).toIntArray(), actual.prefill[i].map(Float::toRawBits).toIntArray())
+            }
+            assertEquals(listOf(151671, 151672, 151673) + ids.take(3) + body.distinct(), calls)
+            // Every body position owns its storage, including nonadjacent repeats.
+            for (i in body.indices) for (j in 0 until i) {
+                assertNotSame(actual.prefill[9 + i], actual.prefill[9 + j])
+            }
+            val repeatedIndex = body.indices.drop(1).first { body[it] == body[0] }
+            val repeatedRow = actual.prefill[9 + repeatedIndex]
+            val original = repeatedRow[0].toRawBits()
+            actual.prefill[9][0] = 12345f
+            assertEquals(original, repeatedRow[0].toRawBits())
+        }
+    }
+    @Test fun summedRowsRejectNonFiniteOperandsAndFiniteOverflow() {
+        // Cover both operands and early/late coordinates in the first summed row.
+        for (coordinate in listOf(0, 511, 1023)) {
+            for (invalid in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+                for (invalidText in listOf(true, false)) {
+                    val frontend = LamiVoiceTextFrontend(tokenizer(), { id ->
+                        FloatArray(1024) { if (invalidText && id == 151671 && it == coordinate) invalid else 0f }
+                    }, { id ->
+                        FloatArray(1024) { if (!invalidText && id == 2154 && it == coordinate) invalid else 0f }
+                    })
+                    assertThrows(IllegalArgumentException::class.java) { frontend.prepare("111") }
+                }
+            }
+            for (value in listOf(Float.MAX_VALUE, -Float.MAX_VALUE)) {
+                val frontend = LamiVoiceTextFrontend(tokenizer(), {
+                    FloatArray(1024) { if (it == coordinate) value else 0f }
+                }, {
+                    FloatArray(1024) { if (it == coordinate) value else 0f }
+                })
+                assertThrows(IllegalArgumentException::class.java) { frontend.prepare("111") }
+            }
+        }
     }
     @Test fun rejectsBlankSpecialSyntaxAndCacheOverflow() {
         val frontend = LamiVoiceTextFrontend(tokenizer(), { row("text_rows", it) }, { row("codec_rows", it) })

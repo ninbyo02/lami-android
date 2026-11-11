@@ -1,0 +1,179 @@
+{
+  "source_url": "https://github.com/k2-fsa/sherpa-onnx.git",
+  "source_tag": "v1.13.6",
+  "source_commit": "1cb484af5e69d3c7803c1eb0b3b5ab8041e0e911",
+  "patch": "patches/sherpa-onnx-1.13.6-lami-causal-vocoder-stream.patch",
+  "patch_sha256": "b162152fe33610242338162304afecc5caf713fc47b5d6ff828497eec99de6d7",
+  "script_sha256": "4f4535d73f7d2b5f512e74fff2f4a9555f3fac326b39b4fc3f708344cd1828e7",
+  "ndk_version": "28.2.13676358",
+  "android_api": 34,
+  "generator": "Ninja",
+  "requested_build_options": {
+    "CMAKE_BUILD_TYPE": "Release",
+    "ANDROID_PLATFORM": "android-34",
+    "ANDROID_STL": "c++_static",
+    "BUILD_SHARED_LIBS": "ON",
+    "SHERPA_ONNX_ENABLE_JNI": "ON",
+    "SHERPA_ONNX_ENABLE_TTS": "ON",
+    "SHERPA_ONNX_ENABLE_BINARY": "OFF",
+    "SHERPA_ONNX_ENABLE_TESTS": "OFF",
+    "SHERPA_ONNX_ENABLE_PORTAUDIO": "OFF",
+    "SHERPA_ONNX_ENABLE_WEBSOCKET": "OFF",
+    "SHERPA_ONNX_ENABLE_PYTHON": "OFF",
+    "SHERPA_ONNX_ENABLE_C_API": "OFF",
+    "SHERPA_ONNX_BUILD_C_API_EXAMPLES": "OFF",
+    "BUILD_TESTING": "OFF",
+    "BUILD_ESPEAK_NG_EXE": "OFF",
+    "BUILD_ESPEAK_NG_TESTS": "OFF",
+    "BUILD_PIPER_PHONMIZE_EXE": "OFF",
+    "BUILD_PIPER_PHONMIZE_TESTS": "OFF",
+    "SHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE": "ON"
+  },
+  "onnxruntime_version": "1.27.1",
+  "header_sha256": {
+    "onnxruntime_c_api.h": "523131bab81173fe287c578f7dda344e1dc5c749fa3f70b55fbbf8f210850313",
+    "onnxruntime_cxx_api.h": "c5f9bb73d7674cf99a197b383a144eb2a5eda71cc060193a86c7d24e6fa36ed7",
+    "onnxruntime_cxx_inline.h": "114b4d008351eaa4462560438474cebd104f74259cc8af607acc0b97453200d2",
+    "onnxruntime_float16.h": "88b242845d25981633a0bbd1c148e273cf8bfb016ea3f57c4af41a06530f72b0",
+    "onnxruntime_run_options_config_keys.h": "973037c14b0f1af0854ae25cd676776f79dbcfd2a6791f6ee17a5374c2a62550",
+    "onnxruntime_session_options_config_keys.h": "63c790b4e5f5416e7115dee7e0d818a7fd3924451fb2339102a086f7e50c011e",
+    "onnxruntime_ep_c_api.h": "f65ac849718cabe3ff4902698dd2de643c3b3dbe0010242b2b0407548e7ee00c",
+    "nnapi_provider_factory.h": "49f7e0952e57b7e2942f69d8df61a9d99836f05b49a89700e1f5a16278c945e2"
+  },
+  "original_aar_sha256": "0012d9a28f15bd6fb966b62b70a75da3990512fdccce28b83098248ce4be1698",
+  "ort_sha256": {
+    "arm64-v8a": "dc5e4c172b1be9e530c6a62ad8f1be3e0a911cabdee6195abf28dab72477e194",
+    "x86_64": "b2e0b6b0ffde094837df455d6e67b865dc4f7bf246b976ad4687a5220211f751"
+  },
+  "streaming_abis": {
+    "arm64-v8a": {
+      "sha256": "63ac552c4e01e40aad49fa2d81b4cff1b404942d1239af674dcd19463f4bb0da",
+      "bytes": 4762416,
+      "machine": "AArch64",
+      "load_segment_alignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libandroid.so",
+        "liblog.so",
+        "libonnxruntime.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "streaming_marker": "Java_io_github_ninbyo02_lami_tts_LamiSupertonicStreamingRuntime_version",
+      "unstripped_sha256": "7629e2a29555a2c44266c448ecdb24341c62c7e4a97beb6ae2fb08575785159c",
+      "unstripped_bytes": 91601480,
+      "strip_options": [
+        "--strip-unneeded"
+      ],
+      "cmake_settings": {
+        "ANDROID_ABI": "arm64-v8a",
+        "ANDROID_PLATFORM": "android-34",
+        "BUILD_ESPEAK_NG_EXE": "OFF",
+        "BUILD_ESPEAK_NG_TESTS": "OFF",
+        "BUILD_PIPER_PHONMIZE_EXE": "OFF",
+        "BUILD_PIPER_PHONMIZE_TESTS": "OFF",
+        "BUILD_SHARED_LIBS": "ON",
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS": "",
+        "CMAKE_CXX_FLAGS_RELEASE": "",
+        "CMAKE_C_FLAGS": "",
+        "CMAKE_C_FLAGS_RELEASE": "",
+        "CMAKE_SHARED_LINKER_FLAGS": "",
+        "SHERPA_ONNX_BUILD_C_API_EXAMPLES": "ON",
+        "SHERPA_ONNX_ENABLE_BINARY": "OFF",
+        "SHERPA_ONNX_ENABLE_C_API": "OFF",
+        "SHERPA_ONNX_ENABLE_JNI": "ON",
+        "SHERPA_ONNX_ENABLE_PORTAUDIO": "OFF",
+        "SHERPA_ONNX_ENABLE_PYTHON": "OFF",
+        "SHERPA_ONNX_ENABLE_TESTS": "OFF",
+        "SHERPA_ONNX_ENABLE_TTS": "ON",
+        "SHERPA_ONNX_ENABLE_WEBSOCKET": "OFF",
+        "SHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE": "ON"
+      },
+      "cmake_cache_sha256": "57d4c71d0e0bd32ac276028a2f3be1ad65a8b8c27f885f372e5513f33d1a6012"
+    },
+    "x86_64": {
+      "sha256": "11a7b2f1b299b2962eecb05c091b15e07dc5e8051cecdb86af0fadaf25509db2",
+      "bytes": 5212656,
+      "machine": "Advanced Micro Devices X86-64",
+      "load_segment_alignment": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libandroid.so",
+        "liblog.so",
+        "libonnxruntime.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "streaming_marker": "Java_io_github_ninbyo02_lami_tts_LamiSupertonicStreamingRuntime_version",
+      "unstripped_sha256": "56544f7e392145d15db6ab595315f1f1caf2315157209059101459b55b07e52a",
+      "unstripped_bytes": 90018232,
+      "strip_options": [
+        "--strip-unneeded"
+      ],
+      "cmake_settings": {
+        "ANDROID_ABI": "x86_64",
+        "ANDROID_PLATFORM": "android-34",
+        "BUILD_ESPEAK_NG_EXE": "OFF",
+        "BUILD_ESPEAK_NG_TESTS": "OFF",
+        "BUILD_PIPER_PHONMIZE_EXE": "OFF",
+        "BUILD_PIPER_PHONMIZE_TESTS": "OFF",
+        "BUILD_SHARED_LIBS": "ON",
+        "BUILD_TESTING": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS": "",
+        "CMAKE_CXX_FLAGS_RELEASE": "",
+        "CMAKE_C_FLAGS": "",
+        "CMAKE_C_FLAGS_RELEASE": "",
+        "CMAKE_SHARED_LINKER_FLAGS": "",
+        "SHERPA_ONNX_BUILD_C_API_EXAMPLES": "ON",
+        "SHERPA_ONNX_ENABLE_BINARY": "OFF",
+        "SHERPA_ONNX_ENABLE_C_API": "OFF",
+        "SHERPA_ONNX_ENABLE_JNI": "ON",
+        "SHERPA_ONNX_ENABLE_PORTAUDIO": "OFF",
+        "SHERPA_ONNX_ENABLE_PYTHON": "OFF",
+        "SHERPA_ONNX_ENABLE_TESTS": "OFF",
+        "SHERPA_ONNX_ENABLE_TTS": "ON",
+        "SHERPA_ONNX_ENABLE_WEBSOCKET": "OFF",
+        "SHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE": "ON"
+      },
+      "cmake_cache_sha256": "087dbc257e9f1793c0476aa43d2909a0740b2a31f775490901db2b728b1c6279"
+    }
+  },
+  "output_sha256": "ca91e6928a5b64f9c32d6b1b9b496010db2a776b6e52101f9fb4c3c4b72091c1",
+  "output_bytes": 49132897,
+  "only_replaced_payloads": [
+    "jni/arm64-v8a/libsherpa-onnx-jni.so",
+    "jni/x86_64/libsherpa-onnx-jni.so"
+  ],
+  "unselected_abis": "retain original non-streaming JNI",
+  "package_only": true,
+  "output": "app/libs/sherpa-onnx-1.13.6-lami-stream.aar",
+  "validation_scope": "Both ABI builds packaged and inspected; numerical host vocoder-window parity; device runtime tests are recorded separately",
+  "host_parity": {
+    "runtime": "ONNX Runtime 1.31.1",
+    "model": "Light5 vocoder.int8.onnx",
+    "latent_lengths": [
+      37,
+      64,
+      113
+    ],
+    "sample_count": 657408,
+    "chunk_frames": 8,
+    "left_context_frames": 24,
+    "right_context_frames": 0,
+    "max_absolute_pcm_error": 1.4156103134155273e-07,
+    "input": "identical seeded random latent for whole/window comparison"
+  }
+}

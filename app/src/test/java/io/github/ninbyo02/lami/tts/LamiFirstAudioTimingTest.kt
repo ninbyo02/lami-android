@@ -34,11 +34,11 @@ class LamiFirstAudioTimingTest {
 
         assertEquals(25L, LamiFirstAudioTiming.elapsedMsSince(request, 1_025_999_999L))
         assertEquals(
-            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=requested first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1000000000 first_audio_elapsed_ms=0 first_audio_elapsed_ns=0 first_audio_clock=elapsedRealtimeNanos first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
             LamiFirstAudioTiming.requestStartedEvent(request),
         )
         assertEquals(
-            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_clock=elapsedRealtimeNanos",
+            "first_audio=started first_audio_request_id=7 first_audio_request_ordinal=0 first_audio_start=cold first_audio_request_started_at_ns=1000000000 first_audio_at_ns=1025999999 first_audio_elapsed_ms=25 first_audio_elapsed_ns=25999999 first_audio_clock=elapsedRealtimeNanos first_audio_boundary=audio_track_play_returned first_audio_start_basis=engine_request_ordinal first_audio_request_boundary=preparation_started",
             LamiFirstAudioTiming.playbackStartedEvent(request, 1_025_999_999L),
         )
     }
@@ -61,6 +61,7 @@ class LamiFirstAudioTimingTest {
         assertEquals(requested["first_audio_request_started_at_ns"], started["first_audio_request_started_at_ns"])
         assertEquals("elapsedRealtimeNanos", requested["first_audio_clock"])
         assertEquals("elapsedRealtimeNanos", started["first_audio_clock"])
+        assertEquals("audio_track_play_returned", started["first_audio_boundary"])
         assertEquals("0", requested["first_audio_elapsed_ms"])
         assertEquals("32", started["first_audio_elapsed_ms"])
         assertTrue(
@@ -86,6 +87,15 @@ class LamiFirstAudioTimingTest {
         assertEquals("2000999999", fields["first_audio_at_ns"])
         assertEquals("0", fields["first_audio_elapsed_ms"])
         assertEquals("elapsedRealtimeNanos", fields["first_audio_clock"])
+        assertEquals("audio_track_play_returned", fields["first_audio_boundary"])
+    }
+
+    @Test fun playbackBoundaryCallbackImmediatelyFollowsAudioTrackPlay() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmPlayer.kt",
+        ).readText()
+
+        assertTrue(Regex("track\\.play\\(\\)\\s*}\\s+onStarted\\(\\)").containsMatchIn(source))
     }
 
     @Test fun requestAndEventTimestampsMustBeMonotonic() {
@@ -132,6 +142,241 @@ class LamiFirstAudioTimingTest {
         assertTrue(source.contains("val requestOrdinal = requestId - 1L"))
         assertTrue(source.contains("requestOrdinal = requestOrdinal"))
         assertTrue(source.contains("startKindForRequestOrdinal(requestOrdinal)"))
+    }
+
+    @Test fun coldAndWarmEventsDeclareEngineRequestOrdinalAsClassificationBasis() {
+        for (ordinal in listOf(0L, 1L, 2L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 10L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            for (event in listOf(
+                LamiFirstAudioTiming.requestStartedEvent(request),
+                LamiFirstAudioTiming.playbackStartedEvent(request, 20L),
+            )) {
+                val fields = eventFields(event)
+                assertEquals("engine_request_ordinal", fields["first_audio_start_basis"])
+                assertEquals("preparation_started", fields["first_audio_request_boundary"])
+                assertEquals(if (ordinal == 0L) "cold" else "warm", fields["first_audio_start"])
+                assertEquals(ordinal.toString(), fields["first_audio_request_ordinal"])
+            }
+        }
+    }
+
+    @Test fun coldAndWarmEventsPreserveElapsedNanosecondsBeforeMillisecondTruncation() {
+        for (ordinal in listOf(0L, 1L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 2_000_000_000L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            assertEquals("0", eventFields(LamiFirstAudioTiming.requestStartedEvent(request))["first_audio_elapsed_ns"])
+            for (elapsedNs in listOf(0L, 999_999L, 1_000_000L, 25_999_999L)) {
+                val fields = eventFields(LamiFirstAudioTiming.playbackStartedEvent(request, request.startedAtNs + elapsedNs))
+                assertEquals(elapsedNs.toString(), fields["first_audio_elapsed_ns"])
+                assertEquals((elapsedNs / 1_000_000L).toString(), fields["first_audio_elapsed_ms"])
+                assertEquals(
+                    fields.getValue("first_audio_at_ns").toLong() - fields.getValue("first_audio_request_started_at_ns").toLong(),
+                    fields.getValue("first_audio_elapsed_ns").toLong(),
+                )
+            }
+        }
+    }
+
+    @Test fun preparedEventCorrelatesColdAndWarmPreparationWithPlayback() {
+        for (ordinal in listOf(0L, 1L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 2_000_000_000L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            val preparedAtNs = request.startedAtNs + 999_999L
+            val playbackAtNs = preparedAtNs + 50_000_001L
+            val prepared = eventFields(LamiFirstAudioTiming.preparedEvent(request, preparedAtNs))
+            val started = eventFields(LamiFirstAudioTiming.playbackStartedEvent(request, playbackAtNs))
+            assertEquals("prepared", prepared["first_audio"])
+            assertEquals("full_pcm_synthesis_returned", prepared["first_audio_boundary"])
+            for (key in listOf(
+                "first_audio_request_id", "first_audio_request_ordinal", "first_audio_start",
+                "first_audio_request_started_at_ns", "first_audio_clock",
+                "first_audio_start_basis", "first_audio_request_boundary",
+            )) {
+                assertEquals(started[key], prepared[key])
+            }
+            assertEquals(preparedAtNs.toString(), prepared["first_audio_at_ns"])
+            assertEquals("999999", prepared["first_audio_elapsed_ns"])
+            assertEquals("0", prepared["first_audio_elapsed_ms"])
+            assertEquals(
+                50_000_001L,
+                started.getValue("first_audio_elapsed_ns").toLong() -
+                    prepared.getValue("first_audio_elapsed_ns").toLong(),
+            )
+            assertThrows(IllegalArgumentException::class.java) {
+                LamiFirstAudioTiming.preparedEvent(request, request.startedAtNs - 1L)
+            }
+        }
+    }
+
+    @Test fun allColdAndWarmEventsShareRawTimestampAndElapsedContract() {
+        for (ordinal in listOf(0L, 1L)) {
+            val request = LamiFirstAudioTiming.start(
+                requestId = ordinal + 1L,
+                requestOrdinal = ordinal,
+                startedAtNs = 2_000_000_000L,
+                startKind = LamiFirstAudioTiming.startKindForRequestOrdinal(ordinal),
+            )
+            val events = listOf(
+                LamiFirstAudioTiming.requestStartedEvent(request),
+                LamiFirstAudioTiming.preparedEvent(request, request.startedAtNs + 999_999L),
+                LamiFirstAudioTiming.playbackStartedEvent(request, request.startedAtNs + 1_000_001L),
+            ).map(::eventFields)
+            assertEquals(request.startedAtNs.toString(), events.first()["first_audio_at_ns"])
+            for (fields in events) {
+                val elapsedNs = fields.getValue("first_audio_at_ns").toLong() -
+                    fields.getValue("first_audio_request_started_at_ns").toLong()
+                assertTrue(elapsedNs >= 0L)
+                assertEquals(elapsedNs.toString(), fields["first_audio_elapsed_ns"])
+                assertEquals((elapsedNs / 1_000_000L).toString(), fields["first_audio_elapsed_ms"])
+            }
+        }
+    }
+
+    @Test fun diagnosticProbesRecordPreparationBeforePostSynthesisWork() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnostics.kt",
+        ).readText()
+        val single = source.substringAfter("suspend fun runProbe(")
+            .substringBefore("suspend fun runPipelineProbe(")
+        val pipeline = source.substringAfter("suspend fun runPipelineProbe(")
+            .substringBefore("suspend fun runStreamingProbe(")
+        val prepared = "LamiFirstAudioTiming.preparedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())"
+        for ((probe, postSynthesisWork) in listOf(
+            single to "report.appendText(\"synthesis=success",
+            pipeline to "val pcmBytes =",
+        )) {
+            assertEquals(1, probe.windowed(prepared.length).count { it == prepared })
+            assertTrue(probe.indexOf(prepared) < probe.indexOf(postSynthesisWork))
+            assertTrue(probe.indexOf(prepared) < probe.indexOf("LamiPcmPlayer.play("))
+        }
+        // Optional comparison probes must not inflate the full-PCM readiness timestamp.
+        val afterDecode = pipeline.substringAfter("val full = LamiVoiceDecoderProcess.decode")
+            .substringAfter('\n').lineSequence().first().trim()
+        assertTrue(afterDecode.startsWith("trace("))
+        assertTrue(afterDecode.contains(prepared))
+        for (comparison in listOf("gpuDecoderProbe", "pcmThreadProbe", "prefixDecodeProbe")) {
+            assertTrue(pipeline.indexOf(prepared) < pipeline.indexOf("if ($comparison)"))
+        }
+    }
+
+    @Test fun chatEngineStartsTimingBeforeOptionalDiagnosticSetup() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralChatVoiceEngine.kt",
+        ).readText()
+        val preparation = source.substringAfter("private suspend fun prepareUtterance(")
+            .substringAfter("): PreparedClip? {")
+            .substringBefore("private suspend fun playClip(")
+        // A slow trace factory must remain inside the measured preparation interval.
+        assertTrue(Regex(
+            "^\\s*(?://[^\\n]*\\n\\s*)?val started = SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        ).containsMatchIn(preparation))
+        assertTrue(preparation.indexOf("val started =") < preparation.indexOf("LamiSpeechTraceGuard.create"))
+        assertTrue(preparation.contains("startedAtNs = started,"))
+    }
+
+    @Test fun chatEngineCapturesMonotonicEventsAtSynthesisAndPlaybackBoundaries() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralChatVoiceEngine.kt",
+        ).readText()
+        val preparation = source.substringAfter("private suspend fun prepareUtterance(")
+            .substringBefore("private suspend fun playClip(")
+        // Capture PCM readiness before logging, trace capture, or queue handoff can add delay.
+        assertTrue(Regex(
+            "val pcm = synthesizeSpeech[^\\n]+\\n\\s*" +
+                "trace\\(firstAudio, LamiFirstAudioTiming\\.preparedEvent\\(firstAudio, " +
+                "SystemClock\\.elapsedRealtimeNanos\\(\\)\\)\\)",
+        ).containsMatchIn(preparation))
+        val playback = source.substringAfter("private suspend fun playClip(")
+            .substringBefore("override fun isInCooldown(")
+        // Both modes share one callback. Capture first, then format/log the same timestamp.
+        val callback = playback.substringAfter("val onStarted: () -> Unit = {")
+            .substringBefore("val pcm = if (clip.pcm == null)")
+        assertTrue("Playback timestamp must be the first callback action", Regex(
+            """^\s*val playbackStartedAtNs = SystemClock\.elapsedRealtimeNanos\(\)""",
+        ).containsMatchIn(callback))
+        assertEquals(1, Regex("""SystemClock\.elapsedRealtimeNanos\(\)""").findAll(callback).count())
+        assertTrue("The event must use the captured timestamp", Regex(
+            """LamiFirstAudioTiming\.playbackStartedEvent\(\s*clip\.firstAudio,\s*playbackStartedAtNs,\s*\)""",
+        ).containsMatchIn(callback))
+        assertTrue(callback.indexOf("LamiFirstAudioTiming.playbackStartedEvent(") <
+            callback.indexOf("clip.capture?.event(\"playback_started\")"))
+        assertTrue("Streaming must receive the shared timing callback", Regex(
+            """streamSpeechWithProgress\(clip\.text,\s*\{\s*trace\(clip\.firstAudio, it\)\s*\},\s*onStarted,\s*onProgress\)""",
+        ).containsMatchIn(playback))
+        assertTrue("Buffered playback must receive the same timing callback", Regex(
+            """playBufferedSpeech\(clip\.pcm,\s*onStarted\)""",
+        ).containsMatchIn(playback))
+    }
+
+    @Test fun streamingProbeDispatchesStartBeforeDiagnosticProgress() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiVoiceStreamingProbe.kt",
+        ).readText()
+        assertTrue("Forward start before diagnostic logging can delay the timestamp", Regex(
+            """LamiPcmStreamPlayer\.play\(context,\s*chunks,\s*\{\s*onStarted\(\)\s*progress\(""",
+        ).containsMatchIn(source))
+    }
+
+    @Test fun streamingPlayerReportsPlayReturnBeforeThresholdUpdate() {
+        val source = java.io.File(
+            "src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+        ).readText()
+        assertEquals(1, Regex("""track\.play\(\)""").findAll(source).count())
+        assertEquals(1, Regex("""onStarted\(\)""").findAll(source).count())
+        assertTrue("Capture before post-start threshold changes or writes", Regex(
+            """track\.play\(\)\s*}\s*val playbackStartedAtNs = SystemClock\.elapsedRealtimeNanos\(\)\s*onStarted\(\)""",
+        ).containsMatchIn(source))
+        assertTrue(source.indexOf("onStarted()") < source.indexOf("track.setStartThresholdInFrames(1)"))
+    }
+
+    @Test fun pipelineProbeSamplesPlaybackClockBeforeCallbackBookkeeping() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiNeuralVoiceDiagnostics.kt",
+        ).readText()
+        val playback = source.substringAfter("suspend fun play(clip: Pair<Int, FloatArray>) {")
+            .substringBefore("if (serial)")
+        assertTrue(playback.indexOf("checkNotNull(firstAudioRequests[clip.first])") in
+            0 until playback.indexOf("LamiPcmPlayer.play(context, clip.second)"))
+        // Sample before lookup, formatting or trace-lock contention can inflate the boundary.
+        assertTrue(Regex(
+            "LamiPcmPlayer\\.play\\(context,\\s*clip\\.second\\)\\s*\\{\\s*" +
+                "val playbackStartedAtNs = SystemClock\\.elapsedRealtimeNanos\\(\\)",
+        ).containsMatchIn(playback))
+        assertTrue(Regex(
+            "LamiFirstAudioTiming\\.playbackStartedEvent\\(\\s*firstAudio,\\s*playbackStartedAtNs,",
+        ).containsMatchIn(playback))
+        assertEquals(1, Regex("SystemClock\\.elapsedRealtimeNanos\\(\\)").findAll(playback).count())
+    }
+
+    @Test fun pcmPlayerReportsPlayReturnBeforeFurtherPlaybackWork() {
+        val source = java.io.File(
+            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmPlayer.kt",
+        ).readText()
+        // The started event claims audio_track_play_returned. Keep its callback
+        // adjacent to play(), before threshold changes, writes or drain waits.
+        assertEquals(1, Regex("track\\.play\\(\\)").findAll(source).count())
+        assertEquals(1, Regex("onStarted\\(\\)").findAll(source).count())
+        assertTrue(Regex("track\\.play\\(\\)\\s*}\\s+onStarted\\(\\)").containsMatchIn(source))
+        val playbackStart = source.indexOf("track.play()")
+        assertTrue(source.indexOf("var offset = writeUntil(prebufferPlan.prebufferSamples") in
+            0 until playbackStart)
+        val callback = source.indexOf("onStarted()")
+        assertTrue(callback < source.indexOf("track.setStartThresholdInFrames(1)"))
+        assertTrue(callback < source.indexOf("offset = writeUntil(samples.size"))
+        assertTrue(callback < source.indexOf("while (track.playbackHeadPosition"))
     }
 
     private fun eventFields(event: String): Map<String, String> =

@@ -1,5 +1,6 @@
 package io.github.ninbyo02.lami.tts
 
+/** Per-track deltas; never confuse an AudioTrack's lifetime counter with this utterance. */
 internal object LamiPlaybackUnderrunAccounting {
     fun session(initialCount: Int): Session = Session(initialCount)
 

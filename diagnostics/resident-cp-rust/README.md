@@ -88,6 +88,52 @@ temporary model/library/PCM-free fixture artifacts. Hosted CI does not need QNN
 headers or download a Qualcomm SDK. Optional real SDK compilation continues to
 require `QAIRT_SDK_ROOT` and the `qnn-sdk` feature.
 
+### Reproducible QAIRT 2.47 Android JNI build
+
+From the repository root, use existing tools only (no Gradle or device access):
+
+```bash
+python3 scripts/voice/build_resident_cp_android_jni.py --sdk /path/to/2.47.0.260601 --ndk /path/to/android-ndk --api 35
+python3 scripts/voice/build_resident_cp_android_jni.py --sdk /path/to/2.47.0.260601 --verify-jni diagnostics/resident-cp-rust/target/lami-arm64/liblami_resident_cp_diag.so
+```
+
+Requires Cargo/Rust with `aarch64-linux-android` already installed, offline Cargo
+inputs, the Linux NDK LLVM tools, and the complete official SDK. The builder pins
+all 186 QNN headers by sorted relative name and content digest and reuses the
+reviewed full runtime SHA pins. Android `arm64-v8a` runtime and Hexagon V79 DSP
+are recorded separately. Each build uses a fresh Cargo target directory, checks
+ELF64/AArch64 and rejects direct QNN/vendor RPC dependencies. The build
+also rejects unresolved JNI/FFI references at final link with `--no-undefined`,
+before publishing a new binary or receipt. A failed rebuild
+invalidates any previous receipt. The adjacent `.so.provenance.json` binds the
+JNI hash to SDK hashes, repository source hashes, API level, NDK tool hashes, Rust/Cargo versions and executable hashes, and
+the installed Android target Rust library hashes. Schema 1 receipts require a
+rebuild; schema 2 verification checks the current Rust toolchain too.
+Build and verification reject nonempty environment overrides for Rust compilers,
+compiler wrappers and Rust flags (including Cargo build/Android target variants),
+because those inputs are not recorded in schema 2. Unset the named variables
+before retrying; their values are never printed in the error.
+The same checks reject Clang's nonempty `CPATH`, `C_INCLUDE_PATH`,
+`CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH` and `CCC_OVERRIDE_OPTIONS`: inherited
+header search paths or argument rewrites could otherwise change both native
+compilation stages despite matching SDK header and compiler hashes.
+Build and verification also reject Cargo `config`/`config.toml` files in the
+crate's ancestor `.cargo` directories and `CARGO_HOME` (default `~/.cargo`),
+because their compiler/flag overrides and includes are not recorded. Use a
+configuration-free build environment; the helper never edits existing configs.
+Verification rejects absent or mismatched receipts; these local receipts are
+build evidence, not signed attestations. Outputs remain under ignored `target/`.
+
+Voice-trial staging now calls this same verifier before creating its output,
+rejects missing/stale receipts and binds the copied JNI hash to the verified
+receipt. Its manifest preserves the receipt as `jni_build_receipt`; this proves
+only the local build, with device behavior still unverified. Diagnostic staging
+keeps its existing unverified route. Run staging in the same configuration-free
+Rust/SDK environment used for the build. A trial APK still needs explicit receipt
+consumption by the packaging gate, the full pinned runtime with V79 skeleton in its separate asset
+location, model SHA gates and controller offline Android validation. Device
+acceptance remains with the separately authorized coordinator.
+
 ### Current Evidence And Limits
 
 The original native ELF route generated two 19-frame utterances with one context,

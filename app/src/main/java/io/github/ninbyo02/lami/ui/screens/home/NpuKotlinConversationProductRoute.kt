@@ -52,11 +52,50 @@ internal fun shouldRetryNpuEngineCreateFailure(
     return throwable.message.orEmpty().contains("Failed to create engine", ignoreCase = true)
 }
 
+/** Throttle visible updates, but deliver the latest safe text when native streaming reaches EOS. */
+internal class NpuConversationStreamingPartials(
+    private val inputPrompt: String,
+    private val startedAtMs: Long,
+    private val onPartial: (String) -> Unit,
+    private val dispatchIntervalMs: Long = 100L,
+) {
+    var chunkCount: Int = 0
+        private set
+    var timeToFirstChunkMs: Long? = null
+        private set
+    private var lastDispatchMs: Long? = null
+    private var lastDispatchedText: String? = null
+
+    fun offer(accumulated: String, nowMs: Long) = dispatch(accumulated, nowMs, force = false)
+
+    /** Re-evaluate the final raw text; never flush a previously safe prefix of an unsafe result. */
+    fun finish(accumulated: String, nowMs: Long) = dispatch(accumulated, nowMs, force = true)
+
+    private fun dispatch(accumulated: String, nowMs: Long, force: Boolean) {
+        val quality = evaluateNpuStandardRouteQualityCandidate(
+            rawOutput = accumulated,
+            sanitizedOutput = accumulated.trim(),
+            inputPrompt = inputPrompt,
+            conversationApiUsed = true,
+        )
+        val safePartial = quality.preparedOutput.takeIf {
+            quality.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS && it.isNotBlank()
+        } ?: return
+        if (safePartial == lastDispatchedText) return
+        val previousDispatch = lastDispatchMs
+        if (!force && previousDispatch != null && nowMs - previousDispatch < dispatchIntervalMs) return
+        if (timeToFirstChunkMs == null) timeToFirstChunkMs = (nowMs - startedAtMs).coerceAtLeast(0L)
+        chunkCount += 1
+        lastDispatchMs = nowMs
+        lastDispatchedText = safePartial
+        onPartial(safePartial)
+    }
+}
+
 internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
     const val ROUTE_ID = "npu_kotlin_conversation_product_candidate_v1"
     const val NATIVE_PATCH_MARKER = "qairt244_kotlin_npu_conversation_sampler_v1"
     const val NPU_EVIDENCE = NpuStandardRouteS1Contract.NPU_BACKEND_EVIDENCE
-    private const val PARTIAL_UI_DISPATCH_INTERVAL_MS = 100L
     private const val GENERATION_TELEMETRY_FILE_NAME = "npu_kotlin_conversation_generation_telemetry.txt"
 
     private val mutex = Mutex()
@@ -172,10 +211,8 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                     val builder = StringBuilder()
                     val appendContext = StreamingAppendContext()
                     var nativeChunkCount = 0
-                    var visibleChunkCount = 0
                     var firstNativeChunkMs: Long? = null
-                    var firstVisibleChunkMs: Long? = null
-                    var lastVisibleDispatchMs = 0L
+                    val visiblePartials = NpuConversationStreamingPartials(prompt, sendStartedAt, onPartial)
                     activeConversation.sendMessageAsync(
                         contents,
                         LocalConversationPolicy.generationExtraContext,
@@ -200,40 +237,22 @@ internal object NpuKotlinConversationProductRoute : NpuConversationLifecycle {
                                 appendTrace = trace,
                             )
                             if (builder.isNotEmpty()) {
-                                val accumulated = builder.toString()
-                                val provisionalQuality = evaluateNpuStandardRouteQualityCandidate(
-                                    rawOutput = accumulated,
-                                    sanitizedOutput = accumulated.trim(),
-                                    inputPrompt = prompt,
-                                    conversationApiUsed = true,
-                                )
-                                val safePartial = provisionalQuality.preparedOutput
-                                    .takeIf {
-                                        provisionalQuality.status == NPU_S1_OUTPUT_QUALITY_CANDIDATE_PASS &&
-                                            it.isNotBlank()
-                                    }
-                                if (safePartial != null) {
-                                    val nowMs = SystemClock.elapsedRealtime()
-                                    if (firstVisibleChunkMs == null) {
-                                        firstVisibleChunkMs = (nowMs - sendStartedAt).coerceAtLeast(0L)
-                                    }
-                                    if (lastVisibleDispatchMs == 0L || nowMs - lastVisibleDispatchMs >= PARTIAL_UI_DISPATCH_INTERVAL_MS) {
-                                        visibleChunkCount += 1
-                                        lastVisibleDispatchMs = nowMs
-                                        onPartial(safePartial)
-                                    }
-                                }
+                                visiblePartials.offer(builder.toString(), SystemClock.elapsedRealtime())
                             }
                         }
                     }
+                    // collect must complete normally, and cancellation must still be
+                    // inactive, before a throttled final update can reach the UI.
+                    currentCoroutineContext().ensureActive()
+                    visiblePartials.finish(builder.toString(), SystemClock.elapsedRealtime())
                     NpuConversationGenerationResult(
                         response = builder.toString().trim(),
                         durationMs = (SystemClock.elapsedRealtime() - sendStartedAt).coerceAtLeast(0L),
                         nativeStreamingUsed = true,
                         nativeStreamingChunkCount = nativeChunkCount,
-                        streamingChunkCount = visibleChunkCount,
+                        streamingChunkCount = visiblePartials.chunkCount,
                         timeToFirstNativeChunkMs = firstNativeChunkMs,
-                        timeToFirstChunkMs = firstVisibleChunkMs,
+                        timeToFirstChunkMs = visiblePartials.timeToFirstChunkMs,
                     )
                 } else {
                     val message = activeConversation.sendMessage(
