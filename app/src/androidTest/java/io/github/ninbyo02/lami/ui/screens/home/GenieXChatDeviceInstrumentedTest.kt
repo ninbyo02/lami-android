@@ -1,11 +1,14 @@
 package io.github.ninbyo02.lami.ui.screens.home
 
+import android.media.AudioManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.ninbyo02.lami.MainActivity
+import io.github.ninbyo02.lami.tts.LamiSupertonicSession
+import io.github.ninbyo02.lami.tts.LamiSupertonicVoiceFactory
 import io.github.ninbyo02.lami.tts.LamiTtsPreviewController
 import io.github.ninbyo02.lami.tts.LamiVoiceEngineFactory
 import io.github.ninbyo02.lami.tts.TtsEngineChoice
@@ -30,7 +33,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GenieXChatDeviceInstrumentedTest {
     @Test
-    fun residentConversationStreamsAndItsReplyPlaysThroughSelectedTts(): Unit = runBlocking {
+    fun residentConversationStreamsAndItsReplyReachesTts(): Unit = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val args = InstrumentationRegistry.getArguments()
@@ -54,6 +57,32 @@ class GenieXChatDeviceInstrumentedTest {
                 history += LocalConversationTurn(LocalConversationRole.USER, prompt)
                 history += LocalConversationTurn(LocalConversationRole.MODEL, reply)
                 Log.i(TAG, "compute=${compute.wireName} turn=${history.size / 2} chunks=${result.trace.realPartialChunkCount}")
+            }
+
+            val audio = context.getSystemService(AudioManager::class.java)
+            if (voice == TtsEngineChoice.SUPERTONIC3 && audio.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+                val session = LamiSupertonicSession(
+                    LamiSupertonicVoiceFactory.modelDirectory(context),
+                    speakerId = 0,
+                    steps = 5,
+                    threads = 4,
+                )
+                try {
+                    var samples = 0
+                    var nonzero = false
+                    withTimeout(120_000) {
+                        session.stream(reply) { pcm ->
+                            assertTrue(pcm.all(Float::isFinite))
+                            samples += pcm.size
+                            nonzero = nonzero || pcm.any { it != 0f }
+                        }
+                    }
+                    assertTrue("The GenieX reply must yield non-silent PCM", samples > 0 && nonzero)
+                    Log.i(TAG, "tts=${voice.storedValue} pcm_samples=$samples ringer_mode=${audio.ringerMode}")
+                } finally {
+                    session.close()
+                }
+                return@runBlocking
             }
 
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
