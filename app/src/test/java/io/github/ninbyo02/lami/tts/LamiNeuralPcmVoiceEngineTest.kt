@@ -86,4 +86,82 @@ class LamiNeuralPcmVoiceEngineTest {
         val text = "温度は23.5度です。 CPUの設定を確認します。"
         assertEquals(listOf("温度は23.5度です。", "CPUの設定を確認します。"), LamiTtsTextChunks.split(text))
     }
+
+    @Test fun `unpunctuated bursts are bounded without dropping text or splitting surrogate pairs`() {
+        for (text in listOf("あ".repeat(321), "a".repeat(321), "あ".repeat(79) + "😀".repeat(85) + "い")) {
+            val pieces = LamiTtsTextChunks.split(text)
+            assertTrue(pieces.size > 1)
+            assertEquals(text, pieces.joinToString(""))
+            assertTrue(pieces.all { it.codePointCount(0, it.length) <= LamiTtsTextChunks.MAX_PIECE_CODE_POINTS })
+            assertTrue(pieces.none { Character.isHighSurrogate(it.last()) || Character.isLowSurrogate(it.first()) })
+        }
+        assertEquals(listOf(80, 10), LamiTtsTextChunks.split("𓀂".repeat(90)).map { it.codePointCount(0, it.length) })
+    }
+
+    @Test fun `hard bound prefers preceding whitespace rather than splitting an ordinary Latin word`() {
+        val first = "a".repeat(20)
+        val word = "longword".repeat(8)
+        assertEquals(listOf(first, word), LamiTtsTextChunks.split("$first $word"))
+    }
+
+    @Test fun `audio started event waits for player callback after synthesis`() = runTest {
+        val synthesis = CompletableDeferred<FloatArray>()
+        val allowPlayback = CompletableDeferred<Unit>()
+        var started = 0
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
+            override suspend fun synthesize(text: String) = synthesis.await()
+            override suspend fun close() = Unit
+        }, { _, onStarted -> allowPlayback.await(); onStarted() })
+        engine.setOnAudioStarted { started++ }
+
+        engine.speak("こんにちは。")
+        runCurrent()
+        assertEquals(0, started)
+        synthesis.complete(pcm)
+        runCurrent()
+        assertEquals(0, started)
+        allowPlayback.complete(Unit)
+        runCurrent()
+
+        assertEquals(1, started)
+        assertFalse(engine.isSpeaking.value)
+    }
+
+    @Test fun `synthesis failure reports error without reporting audio started`() = runTest {
+        val errors = mutableListOf<String>()
+        var started = 0
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
+            override suspend fun synthesize(text: String): FloatArray = error("Synthesis unavailable")
+            override suspend fun close() = Unit
+        }, { _, _ -> fail("Failed synthesis must never play") })
+        engine.setOnError(errors::add)
+        engine.setOnAudioStarted { started++ }
+
+        engine.speak("こんにちは。")
+        runCurrent()
+
+        assertEquals(1, errors.size)
+        assertTrue(errors.single().isNotBlank())
+        assertEquals(0, started)
+        assertFalse(engine.isSpeaking.value)
+    }
+
+    @Test fun `playback failure reports error after started event and releases busy state`() = runTest {
+        val errors = mutableListOf<String>()
+        var started = 0
+        val engine = LamiNeuralPcmVoiceEngine(backgroundScope, object : LamiResidentPcmSession {
+            override suspend fun synthesize(text: String) = pcm
+            override suspend fun close() = Unit
+        }, { _, onStarted -> onStarted(); error("Audio device unavailable") })
+        engine.setOnError(errors::add)
+        engine.setOnAudioStarted { started++ }
+
+        engine.speak("こんにちは。")
+        runCurrent()
+
+        assertEquals(1, started)
+        assertEquals(1, errors.size)
+        assertTrue(errors.single().isNotBlank())
+        assertFalse(engine.isSpeaking.value)
+    }
 }

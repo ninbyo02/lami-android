@@ -158,7 +158,7 @@ class KokoroBenchmarkActivity : Activity() {
                     val wav = output.resolve("repeat-$repeat.wav")
                     withContext(Dispatchers.IO) { writeWav(wav, pcm) }
                     row.put("wav_path", wav.absolutePath)
-                    if (play) LamiPcmPlayer.play(pcm) { row.put("play_return_at_ns", SystemClock.elapsedRealtimeNanos()) }
+                    if (play) LamiPcmPlayer.play(applicationContext, pcm) { row.put("play_return_at_ns", SystemClock.elapsedRealtimeNanos()) }
                     else row.put("play_return_at_ns", JSONObject.NULL)
                     withContext(Dispatchers.IO) { output.resolve("metrics.jsonl").appendText(row.toString() + "\n") }
                     Log.i(TAG, row.toString())

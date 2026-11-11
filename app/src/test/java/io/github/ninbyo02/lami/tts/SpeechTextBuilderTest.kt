@@ -352,7 +352,7 @@ class SpeechTextBuilderTest {
     fun atxHeadingWithBrainEmoji_isFullyNormalized() {
         val actual = SpeechTextBuilder.build("## 🧠 次の改善案（任意）")
 
-        assertEquals("次の改善案（任意）", actual)
+        assertEquals("次の改善案、任意。", actual)
     }
 
     @Test

@@ -48,7 +48,7 @@ internal object LamiNeuralVoiceDiagnostics {
                 val wav = context.filesDir.resolve("neural_tts_last.wav")
                 writeWav(wav, pcm)
                 report.appendText("wav=neural_tts_last.wav\n")
-                LamiPcmPlayer.play(pcm) {
+                LamiPcmPlayer.play(context, pcm) {
                     report.appendText(
                         "${LamiFirstAudioTiming.playbackStartedEvent(firstAudio, SystemClock.elapsedRealtimeNanos())}\n",
                     )
@@ -113,7 +113,7 @@ internal object LamiNeuralVoiceDiagnostics {
                     val firstAudio = checkNotNull(firstAudioRequests[clip.first]) {
                         "first-audio request timing missing"
                     }
-                    LamiPcmPlayer.play(clip.second) {
+                    LamiPcmPlayer.play(context, clip.second) {
                         val playbackStartedAtNs = SystemClock.elapsedRealtimeNanos()
                         trace(
                             "request=${clip.first} ${

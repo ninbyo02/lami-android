@@ -48,6 +48,7 @@ anim_save_*.log
 *.pb
 _debug/
 /artifacts/
+/app/libs/sherpa-onnx-1.13.6-lami-stream.aar
 
 # QAIRT/LiteRT native artifacts are local-only. Keep text summaries, hashes,
 # Build IDs, and patch metadata in Git; do not track large rebuilt binaries.
@@ -83,3 +84,7 @@ app/src/trueEngineNpuProbeDebug/jniLibs/
 # Python tooling caches
 __pycache__/
 *.pyc
+
+# Rebuild the local Supertonic streaming overlay with the pinned source script.
+/app/libs/sherpa-onnx-1.13.6-lami-stream.aar
+/app/libs/sherpa-onnx-1.13.6-lami-stream.build.json

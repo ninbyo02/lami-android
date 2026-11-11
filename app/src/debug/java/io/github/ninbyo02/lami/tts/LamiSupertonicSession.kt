@@ -27,6 +27,8 @@ internal class LamiSupertonicSession(
     private val speakerId: Int = 0,
     private val steps: Int = 5,
     private val threads: Int = 4,
+    private val vocoderChunkFrames: Int = 8,
+    private val adaptiveWindow: Boolean = false,
     private val measured: (JSONObject) -> Unit = {},
 ) : LamiResidentPcmSession {
     private val dispatcher = Executors.newSingleThreadExecutor { task -> Thread(task, "LamiSupertonic").apply { isDaemon = true } }.asCoroutineDispatcher()
@@ -40,6 +42,7 @@ internal class LamiSupertonicSession(
 
     init {
         require(speakerId in 0..9 && steps in 1..30 && threads in 1..16)
+        require(vocoderChunkFrames in 1..256) { "Supertonic vocoder window must contain 1..256 latent frames" }
     }
 
     override suspend fun prewarm() { withContext(dispatcher) { mutex.withLock { ensureLoaded() } } }
@@ -124,6 +127,116 @@ internal class LamiSupertonicSession(
                 resampled.samples
             }
         }
+    }
+
+    /**
+     * The LAMI sherpa patch decodes bounded causal latent windows after
+     * the global denoising pass. The callback blocks on downstream consumption,
+     * so the first audio can play while later windows of this sentence decode.
+     */
+    override suspend fun stream(text: String, emit: suspend (FloatArray) -> Unit) =
+        stream(text, LamiSupertonicVocoderWindowPolicy.select(text, vocoderChunkFrames, adaptiveWindow), emit)
+
+    /** Per-request diagnostic override, independent of the optional adaptive policy. */
+    suspend fun stream(text: String, vocoderChunkFrames: Int, emit: suspend (FloatArray) -> Unit) {
+        require(vocoderChunkFrames in 1..256) { "Supertonic vocoder window must contain 1..256 latent frames" }
+        check(LamiSupertonicStreamingRuntime.available) {
+            "Supertonic causal streaming runtime is not installed in this build"
+        }
+        val ready = SystemClock.elapsedRealtimeNanos()
+        val token = generation.get()
+        val resampler = LamiPcmResampler.Stream(44_100, LamiPcmContract.SAMPLE_RATE)
+        var sampleCount = 0L
+        var clippedCount = 0L
+        var callbackCount = 0
+        var nativeSampleCount = 0L
+        var firstPcmAt = 0L
+        var nativeStart = 0L
+        var nativeEnd = 0L
+        var nativeCallbackBlockedNs = 0L
+        var sourcePeak = 0f
+        var loadedBeforeRequest = false
+        streamSupertonicNativePcm(
+            nativeDispatcher = dispatcher,
+            generate = { accept ->
+                mutex.withLock {
+                    currentCoroutineContext().ensureActive()
+                    loadedBeforeRequest = engine != null
+                    ensureLoaded()
+                    currentCoroutineContext().ensureActive()
+                    if (generation.get() != token) throw CancellationException("Supertonic request stopped before generation")
+                    nativeStart = SystemClock.elapsedRealtimeNanos()
+                    val callback = LamiNativePcmCallback { chunk ->
+                        if (chunk.isNotEmpty() && generation.get() == token) {
+                            if (firstPcmAt == 0L) firstPcmAt = SystemClock.elapsedRealtimeNanos()
+                            callbackCount += 1
+                            nativeSampleCount += chunk.size
+                            val callbackStart = SystemClock.elapsedRealtimeNanos()
+                            try {
+                                accept(chunk)
+                            } finally {
+                                // Includes bridge scheduling, resampling, and the
+                                // suspending consumer's backpressure. Playback
+                                // time must not be presented as native compute.
+                                nativeCallbackBlockedNs += SystemClock.elapsedRealtimeNanos() - callbackStart
+                            }
+                        }
+                    }
+                    val audio = checkNotNull(engine).generateWithConfigAndCallback(
+                        text,
+                        GenerationConfig(speed = 1f, sid = speakerId, numSteps = steps,
+                            extra = mapOf("lang" to "ja", "seed" to "42", "silence_duration" to "0",
+                                "lami_vocoder_chunk_frames" to vocoderChunkFrames.toString(), "lami_vocoder_left_context" to "24")),
+                        callback,
+                    )
+                    nativeEnd = SystemClock.elapsedRealtimeNanos()
+                    currentCoroutineContext().ensureActive()
+                    if (generation.get() != token) throw CancellationException("Supertonic request stopped")
+                    require(audio.sampleRate == 44_100)
+                    require(nativeSampleCount == audio.samples.size.toLong()) {
+                        "Supertonic stream callback samples differ from the generated waveform"
+                    }
+                    require(callbackCount > 0) { "Supertonic generated no streaming PCM" }
+                }
+            },
+            consume = { chunk ->
+                currentCoroutineContext().ensureActive()
+                if (generation.get() != token) throw CancellationException("Supertonic request stopped")
+                for (sample in chunk) sourcePeak = maxOf(sourcePeak, kotlin.math.abs(sample))
+                val output = resampler.append(chunk)
+                clippedCount += output.clippedSamples
+                if (output.samples.isNotEmpty()) {
+                    sampleCount += output.samples.size
+                    emit(output.samples)
+                }
+            },
+        )
+        val tail = resampler.finish()
+        clippedCount += tail.clippedSamples
+        if (tail.samples.isNotEmpty()) {
+            sampleCount += tail.samples.size
+            emit(tail.samples)
+        }
+        require(sampleCount > 0) { "Supertonic generated empty resampled PCM" }
+        val end = SystemClock.elapsedRealtimeNanos()
+        measured(JSONObject().put("engine", "supertonic3_sherpa_causal_stream")
+            .put("runtime_version", "1.13.6+lami-vocoder-stream-v1")
+            .put("backend_requested", "cpu").put("sid", speakerId).put("steps", steps)
+            .put("seed", 42).put("threads_requested", threads)
+            .put("model_sha256", bundleHash).put("text_sha256", LamiKokoroMediaPipeSession.textHash(text))
+            .put("text_ready_at_ns", ready).put("loaded_before_request", loadedBeforeRequest)
+            .put("synthesis_started_at_ns", nativeStart).put("first_pcm_at_ns", firstPcmAt)
+            .put("native_synthesis_completed_at_ns", nativeEnd).put("synthesis_completed_at_ns", end)
+            .put("native_callback_blocked_ns", nativeCallbackBlockedNs)
+            .put("native_generate_excluding_callback_ms", (nativeEnd - nativeStart - nativeCallbackBlockedNs).coerceAtLeast(0L) / 1e6)
+            .put("native_callback_timing_scope", "bridge copy, scheduling, resampling, consumer backpressure; not native compute")
+            .put("first_pcm_sample_rate_hz", 44_100).put("sample_rate_hz", 24_000)
+            .put("native_sample_count", nativeSampleCount).put("sample_count", sampleCount)
+            .put("pcm_callback_count", callbackCount).put("vocoder_chunk_frames", vocoderChunkFrames)
+            .put("vocoder_left_context_frames", 24).put("intra_sentence_pcm_streaming", true)
+            .put("source_pcm_peak", sourcePeak.toDouble())
+            .put("resample_clipped_samples", clippedCount).put("audible_start_at_ns", JSONObject.NULL)
+            .put("native_cancellation", "current native generation must finish before release"))
     }
 
     override fun cancel() { generation.incrementAndGet() }

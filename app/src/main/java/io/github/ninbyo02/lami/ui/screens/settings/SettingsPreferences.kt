@@ -21,6 +21,7 @@ import io.github.ninbyo02.lami.ui.screens.home.NpuStandardRoutePreferences
 import io.github.ninbyo02.lami.ui.text.MarkdownStreamingMode
 import io.github.ninbyo02.lami.ui.text.resolveEffectiveMarkdownStreamingMode
 import io.github.ninbyo02.lami.tts.AndroidTtsController
+import io.github.ninbyo02.lami.tts.TtsEngineChoice
 import io.github.ninbyo02.lami.viewmodels.RemoteProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -427,6 +428,7 @@ class SettingsPreferences(private val context: Context) {
     private val ttsSpeechRateKey = floatPreferencesKey("tts_speech_rate")
     private val ttsPitchKey = floatPreferencesKey("tts_pitch")
     private val ttsEnabledKey = booleanPreferencesKey("tts_enabled")
+    private val ttsEngineKey = stringPreferencesKey("tts_engine")
     private val devEnableStreamingSentenceTtsKey = booleanPreferencesKey("dev_enable_streaming_sentence_tts")
     private val chatLamiAvatarSizeDpKey = intPreferencesKey("chat_lami_avatar_size_dp")
     private val localBaseModelDisplayNameKey = stringPreferencesKey(LOCAL_BASE_MODEL_DISPLAY_NAME_DATASTORE_KEY)
@@ -601,6 +603,10 @@ class SettingsPreferences(private val context: Context) {
 
     val ttsEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[ttsEnabledKey] ?: true
+    }
+
+    val ttsEngineFlow: Flow<TtsEngineChoice> = context.dataStore.data.map { preferences ->
+        TtsEngineChoice.fromStoredValue(preferences[ttsEngineKey])
     }
 
     val devEnableStreamingSentenceTtsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -1578,6 +1584,12 @@ class SettingsPreferences(private val context: Context) {
     suspend fun setTtsEnabled(value: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[ttsEnabledKey] = value
+        }
+    }
+
+    suspend fun setTtsEngine(value: TtsEngineChoice) {
+        context.dataStore.edit { preferences ->
+            preferences[ttsEngineKey] = value.storedValue
         }
     }
 

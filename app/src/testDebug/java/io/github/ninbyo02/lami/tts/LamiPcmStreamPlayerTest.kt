@@ -21,6 +21,11 @@ import org.robolectric.shadows.ShadowAudioTrack
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], shadows = [LamiPcmStreamPlayerTest.PartialWriteAudioTrack::class])
 class LamiPcmStreamPlayerTest {
+    @org.junit.Before fun normalOutputMode() {
+        org.robolectric.RuntimeEnvironment.getApplication()
+            .getSystemService(android.media.AudioManager::class.java).ringerMode = android.media.AudioManager.RINGER_MODE_NORMAL
+    }
+
     @Test fun producerGapDefersFinalUnderrunObservationUntilLastChunkDrains() = runTest {
         val first = floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f)
         val last = floatArrayOf(0.5f, 0.6f)
@@ -29,7 +34,7 @@ class LamiPcmStreamPlayerTest {
         var stats: LamiPcmStreamPlayer.Stats? = null
         var starts = 0
         val playback = launch {
-            stats = LamiPcmStreamPlayer.play(chunks) { starts++ }
+            stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) { starts++ }
         }
         advanceUntilIdle()
         val track = PartialWriteAudioTrack.latest
@@ -60,7 +65,7 @@ class LamiPcmStreamPlayerTest {
         var starts = 0
         var completed = false
         val playback = launch {
-            LamiPcmStreamPlayer.play(chunks) { starts++ }
+            LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) { starts++ }
             completed = true
         }
         advanceUntilIdle()
@@ -91,7 +96,7 @@ class LamiPcmStreamPlayerTest {
         var stats: LamiPcmStreamPlayer.Stats? = null
         var starts = 0
         val playback = launch {
-            stats = LamiPcmStreamPlayer.play(chunks) { starts++ }
+            stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) { starts++ }
         }
         advanceUntilIdle()
         val track = PartialWriteAudioTrack.latest
@@ -128,7 +133,7 @@ class LamiPcmStreamPlayerTest {
         chunks.send(first)
         var stats: LamiPcmStreamPlayer.Stats? = null
         val playback = launch {
-            stats = LamiPcmStreamPlayer.play(chunks) {}
+            stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) {}
         }
         advanceUntilIdle()
         val track = PartialWriteAudioTrack.latest
@@ -166,7 +171,7 @@ class LamiPcmStreamPlayerTest {
         chunks.close()
         var starts = 0
 
-        val stats = LamiPcmStreamPlayer.play(chunks) { starts++ }
+        val stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) { starts++ }
         val track = PartialWriteAudioTrack.latest
 
         assertEquals(1, starts)
@@ -187,7 +192,7 @@ class LamiPcmStreamPlayerTest {
         var result: Result<LamiPcmStreamPlayer.Stats>? = null
         var starts = 0
         val playback = launch {
-            result = runCatching { LamiPcmStreamPlayer.play(chunks) { starts++ } }
+            result = runCatching { LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) { starts++ } }
         }
         advanceUntilIdle()
         val track = PartialWriteAudioTrack.latest
@@ -219,7 +224,7 @@ class LamiPcmStreamPlayerTest {
         chunks.close()
         var starts = 0
 
-        val stats = LamiPcmStreamPlayer.play(chunks) {
+        val stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks) {
             starts++
             val track = PartialWriteAudioTrack.latest
             // Only the initial prebuffer threshold may have been configured here.
@@ -237,11 +242,98 @@ class LamiPcmStreamPlayerTest {
         assertEquals(listOf("stop", "release"), track.cleanup)
     }
 
+    @Test fun startupReserveWaitsBeyondFirst160msAndPrimesBeforePlayback() = runTest {
+        val first = FloatArray(24_000 * 160 / 1000) { (it % 10) / 100f }
+        val next = FloatArray(24_000 * 480 / 1000) { -(it % 10) / 100f }
+        val tail = FloatArray(48) { 0.2f }
+        val reserve = first + next
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        val progress = mutableListOf<TtsStreamingProgress>()
+        var starts = 0
+        var stats: LamiPcmStreamPlayer.Stats? = null
+        val createdBefore = PartialWriteAudioTrack.created
+        PartialWriteAudioTrack.nextWrites = listOf(reserve.size, tail.size)
+        try {
+            chunks.send(first)
+            val playback = launch {
+                stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks, onStarted = {
+                    starts++
+                    assertEquals(reserve.toList(), PartialWriteAudioTrack.latest.accepted)
+                }, onProgress = progress::add,
+                    prebuffer = LamiPcmPrebufferConfig(minimumMs = 640, maximumMs = 640, gapSafetyMarginMs = 0))
+            }
+            runCurrent()
+
+            assertTrue(playback.isActive)
+            assertEquals(0, starts)
+            assertEquals(createdBefore, PartialWriteAudioTrack.created)
+            assertEquals(listOf(first.size), progress.filter { it.event == TtsStreamEvent.PCM_CHUNK }.map { it.sampleCount })
+
+            chunks.send(next)
+            runCurrent()
+            val track = PartialWriteAudioTrack.latest
+            assertEquals(1, starts)
+            assertEquals(reserve.toList(), track.accepted)
+            assertFalse(track.released)
+            assertEquals(null, stats)
+
+            chunks.send(tail)
+            chunks.close()
+            playback.join()
+
+            assertEquals((reserve + tail).toList(), track.accepted)
+            assertEquals(LamiPcmStreamPlayer.Stats(reserve.size + tail.size, 3), stats)
+            assertEquals(listOf(first.size, next.size, tail.size),
+                progress.filter { it.event == TtsStreamEvent.PCM_CHUNK }.map { it.sampleCount })
+            assertTrue(track.drained)
+            assertEquals(listOf("stop", "release"), track.cleanup)
+        } finally {
+            PartialWriteAudioTrack.nextWrites = null
+            chunks.cancel()
+        }
+    }
+
+    @Test fun shortEosBelowStartupReservePlaysAndDrainsEveryTailSample() = runTest {
+        val first = FloatArray(24_000 * 160 / 1000) { (it % 10) / 100f }
+        val tail = floatArrayOf(-0.1f, 0f, 0.1f)
+        val expected = first + tail
+        val chunks = Channel<FloatArray>(Channel.UNLIMITED)
+        val progress = mutableListOf<TtsStreamingProgress>()
+        var starts = 0
+        PartialWriteAudioTrack.nextWrites = listOf(expected.size)
+        try {
+            chunks.send(first)
+            chunks.send(tail)
+            chunks.close()
+            val stats = LamiPcmStreamPlayer.play(org.robolectric.RuntimeEnvironment.getApplication(), chunks, onStarted = {
+                starts++
+                assertEquals(expected.toList(), PartialWriteAudioTrack.latest.accepted)
+            }, onProgress = progress::add,
+                prebuffer = LamiPcmPrebufferConfig(minimumMs = 640, maximumMs = 640, gapSafetyMarginMs = 0))
+            val track = PartialWriteAudioTrack.latest
+
+            assertEquals(1, starts)
+            assertEquals(LamiPcmStreamPlayer.Stats(expected.size, 3), stats)
+            assertEquals(expected.toList(), track.accepted)
+            assertEquals(listOf(first.size, tail.size),
+                progress.filter { it.event == TtsStreamEvent.PCM_CHUNK }.map { it.sampleCount })
+            assertEquals(expected.size, progress.single { it.event == TtsStreamEvent.PLAYBACK_COMPLETED }.sampleCount)
+            assertTrue(track.drained)
+            assertTrue(track.released)
+            assertEquals(listOf("stop", "release"), track.cleanup)
+        } finally {
+            PartialWriteAudioTrack.nextWrites = null
+            chunks.cancel()
+        }
+    }
+
     /** Script backpressure and a delayed playback head without any audio device. */
     @Implements(AudioTrack::class)
     class PartialWriteAudioTrack : ShadowAudioTrack() {
         companion object {
             lateinit var latest: PartialWriteAudioTrack
+            var created = 0
+            var nextWrites: List<Int>? = null
         }
 
         val accepted = mutableListOf<Float>()
@@ -251,9 +343,11 @@ class LamiPcmStreamPlayerTest {
         val startThresholds = mutableListOf<Int>()
         var drained = false
         var released = false
-        val writes = ArrayDeque(listOf(2, 0, 1, 1, 0, 2))
+        val writes = ArrayDeque(nextWrites ?: listOf(2, 0, 1, 1, 0, 2)).also { nextWrites = null }
         var drainHeadReads = 0
             private set
+
+        init { created++ }
 
         @Implementation
         fun write(samples: FloatArray, offset: Int, size: Int, mode: Int): Int {

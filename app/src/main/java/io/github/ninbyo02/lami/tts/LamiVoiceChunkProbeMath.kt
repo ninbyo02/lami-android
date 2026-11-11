@@ -19,7 +19,13 @@ internal object LamiVoiceChunkProbeMath {
         return LongArray(prefix * 16) { index -> values[(index / prefix) * frames + index % prefix] }
     }
 
-    fun appendedPcm(previous: FloatArray, next: FloatArray): FloatArray {
+    data class PrefixTolerance(val maxAbsolute: Double = 0.0, val rms: Double = 0.0) {
+        init {
+            require(maxAbsolute.isFinite() && rms.isFinite() && maxAbsolute >= 0.0 && rms >= 0.0)
+        }
+    }
+
+    fun appendedPcm(previous: FloatArray, next: FloatArray, tolerance: PrefixTolerance = PrefixTolerance()): FloatArray {
         require(next.size > previous.size) { "PCM prefix did not advance" }
         if (previous.isNotEmpty()) {
             // Only equality is needed here; leave RMS calculation to diagnostics.
@@ -28,9 +34,46 @@ internal object LamiVoiceChunkProbeMath {
                 require(next[index].isFinite() && previous[index].isFinite())
                 if (next[index] != previous[index]) unchanged = false
             }
-            require(unchanged) { "Provisional PCM changed after more codes" }
+            if (!unchanged) {
+                val difference = prefixDifference(previous, next)
+                require(difference.maxAbsolute <= tolerance.maxAbsolute && difference.rms <= tolerance.rms) {
+                    "Provisional PCM changed after more codes: $difference tolerance=$tolerance"
+                }
+            }
         }
         return next.copyOfRange(previous.size, next.size)
+    }
+
+    data class PrefixDifference(
+        val samples: Int,
+        val changedSamples: Int,
+        val maxAbsolute: Double,
+        val rms: Double,
+        val firstChanged: Int,
+        val lastChanged: Int,
+        val maxDifferenceIndex: Int,
+    )
+
+    fun prefixDifference(previous: FloatArray, next: FloatArray): PrefixDifference {
+        require(previous.isNotEmpty() && next.size >= previous.size)
+        var changed = 0
+        var first = -1
+        var last = -1
+        var maximumIndex = -1
+        var maximum = 0.0
+        var squared = 0.0
+        for (index in previous.indices) {
+            require(previous[index].isFinite() && next[index].isFinite())
+            val delta = kotlin.math.abs(previous[index].toDouble() - next[index].toDouble())
+            if (delta != 0.0) {
+                changed++
+                if (first < 0) first = index
+                last = index
+            }
+            if (delta > maximum) { maximum = delta; maximumIndex = index }
+            squared += delta * delta
+        }
+        return PrefixDifference(previous.size, changed, maximum, sqrt(squared / previous.size), first, last, maximumIndex)
     }
 
     data class Difference(val samples: Int, val maxAbsolute: Double, val rms: Double)

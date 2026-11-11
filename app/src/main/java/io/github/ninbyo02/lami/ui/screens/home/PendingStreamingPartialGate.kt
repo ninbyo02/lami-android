@@ -6,5 +6,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class PendingStreamingPartialGate {
     private val open = AtomicBoolean(true)
     val acceptsUpdates: Boolean get() = open.get()
+
+    fun acceptsUpdate(
+        requestEpoch: Long,
+        currentEpoch: Long,
+        requestChatId: Int,
+        currentChatId: Int?,
+        stopRequested: Boolean,
+        imageCallbacksAllowed: Boolean = true,
+    ): Boolean = acceptsUpdates && requestEpoch == currentEpoch &&
+        requestChatId == currentChatId && !stopRequested && imageCallbacksAllowed
+
     fun close() { open.set(false) }
 }

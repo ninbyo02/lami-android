@@ -38,4 +38,30 @@ class LamiPcmResamplerTest {
             LamiPcmResampler.resample(input, 0, 24_000)
         }
     }
+
+    @Test fun `finite native amplitude overshoot is clipped at the FIR output and counted`() {
+        val result = LamiPcmResampler.resample(FloatArray(512) { 1.2111009f }, 44_100, 24_000)
+        assertTrue(result.samples.isNotEmpty())
+        assertTrue(result.samples.all { it == 1f })
+        assertEquals(result.samples.size, result.clippedSamples)
+    }
+
+    @Test fun `same rate clips both polarities and counts only changed samples`() {
+        val input = floatArrayOf(-1.3f, -1f, -0f, 0.2f, 1f, 1.2111009f)
+        val result = LamiPcmResampler.resample(input, 24_000, 24_000)
+        assertNotSame(input, result.samples)
+        assertArrayEquals(floatArrayOf(-1f, -1f, -0f, 0.2f, 1f, 1f), result.samples, 0f)
+        assertEquals(2, result.clippedSamples)
+        assertEquals(1.2111009f, input.last(), 0f)
+    }
+
+    @Test fun `batch rejects nonfinite samples before filtering or same-rate output`() {
+        for (inputRate in listOf(24_000, 44_100)) {
+            for (sample in listOf(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+                assertThrows(IllegalArgumentException::class.java) {
+                    LamiPcmResampler.resample(floatArrayOf(sample), inputRate, 24_000)
+                }
+            }
+        }
+    }
 }

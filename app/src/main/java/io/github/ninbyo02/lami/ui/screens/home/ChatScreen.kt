@@ -1839,7 +1839,7 @@ fun Home(
     var pendingStopUiCooldownClearJob by remember(effectiveChatId) { mutableStateOf<Job?>(null) }
     var suppressedTtsAssistantMessageId by remember(effectiveChatId) { mutableStateOf<Int?>(null) }
     var ttsTapGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
-    var streamingGuardEpoch by remember(effectiveChatId) { mutableStateOf(0L) }
+    var streamingGuardEpoch by remember { mutableStateOf(0L) }
     var selectedInferenceStats by remember { mutableStateOf<InferenceStats?>(null) }
     var selectedLocalTraceForDevSheet by remember { mutableStateOf<LocalInferenceTrace?>(null) }
     var selectedAssistantMessageTextForStatsSheet by remember { mutableStateOf<String?>(null) }
@@ -3350,6 +3350,10 @@ fun Home(
     }
 
     fun beginAssistantResponse(chatId: Int) {
+        // UI callback ownership belongs to the inference request, independently
+        // of its optional speech session, which can be stopped on its own.
+        streamingGuardEpoch += 1
+        if (ttsEnabled) ttsController.prewarm()
         assistantGenerationSessionController.start(SystemClock.elapsedRealtimeNanos(), chatId)
         terminalAssistantResponse = null
         streamingPersistenceState = StreamingPersistenceState()
@@ -4014,27 +4018,7 @@ fun Home(
 
     fun sanitizeTextForTts(text: String): String = sanitizeAssistantTextForTts(text)
 
-    fun sanitizeStreamingTextForTts(text: String): String {
-        var insideFencedCodeBlock = false
-        val filtered = text
-            .lineSequence()
-            .map { it.trim() }
-            .filterNot { line ->
-                if (line.contains("```")) {
-                    insideFencedCodeBlock = !insideFencedCodeBlock
-                    true
-                } else {
-                    insideFencedCodeBlock ||
-                        line.isBlank() ||
-                        line == "コード生成中…" ||
-                        line.matches(Regex("^[`*_#>\\-\\s]+$")) ||
-                        line.matches(Regex("^[\\p{Punct}\\s]+$")) ||
-                        line.matches(Regex(".*[{}();=<>\\[\\]].*"))
-                }
-            }
-            .joinToString(separator = " ")
-        return sanitizeTextForTts(filtered)
-    }
+    fun sanitizeStreamingTextForTts(text: String): String = sanitizeAssistantStreamingTextForTts(text)
 
     suspend fun maybeReleaseHeldEngineForTtsPlayback() {
         val memorySnapshot = withContext(Dispatchers.Default) {
@@ -4059,13 +4043,6 @@ fun Home(
         if (!ttsEnabled || !responseSpeechSession.accepts()) return
         val targetMessageId = streamingSpeechStartedForMessageId
         if (targetMessageId != null && isTtsSuppressedForAssistant(targetMessageId)) return
-        if (fullText.contains("```")) {
-            responseSpeechSession.stop()
-            isStreamingSentencePlaybackActive = false
-            ttsController.stop()
-            viewModel.stopTtsPlayback()
-            return
-        }
         val unsaid = responseSpeechSession.take(fullText, final) ?: return
         val normalized = sanitizeStreamingTextForTts(unsaid)
         if (normalized.isBlank()) return
@@ -4102,7 +4079,9 @@ fun Home(
         streamingResponseText,
     ) {
         if (!effectiveStreamingSentenceTtsEnabled || !isInferenceRunningUi) return@LaunchedEffect
-        val fullText = streamingResponseTextForRender ?: streamingResponseText ?: return@LaunchedEffect
+        // Consume source text before display batching or Markdown repair adds
+        // synthetic fence delimiters to the transient rendered version.
+        val fullText = streamingResponseText ?: streamingResponseTextForRender ?: return@LaunchedEffect
         if (fullText.isBlank()) return@LaunchedEffect
         consumeStreamingSentenceAndSpeak(fullText)
     }
@@ -4223,6 +4202,9 @@ fun Home(
     }
 
     DisposableEffect(ttsController) {
+        ttsController.setOnError { message ->
+            coroutineScope.launch { snackbarHostState.showSnackbar(message) }
+        }
         ttsController.setOnPlaybackStateChanged { isPlaying ->
             viewModel.onTtsPlaybackChanged(isPlaying)
             if (!isPlaying && volumeFeedbackPlaying.getAndSet(false)) {
@@ -5705,7 +5687,7 @@ fun Home(
                                                             armTapGuards = false,
                                                         )
                                                         responseSpeechSession.begin()
-                                                        val npuSpeechGeneration = responseSpeechSession.generation
+                                                        val npuRunGuardEpoch = streamingGuardEpoch
                                                         localInferenceJob = launch {
                                                             var resolvedNpuChatId: Int? = null
                                                             var npuS1DecodeStartedAtMs: Long? = null
@@ -5840,11 +5822,25 @@ fun Home(
                                                                                         imageFilePaths = requestLocalImageFilePaths,
                                                                                         markdownStreamingMode = markdownStreamingMode,
                                                                                         onPartial = { partial ->
-                                                                                            if (imageRunLease?.acceptsCallbacks != false && partialGate.acceptsUpdates && !localInferenceRunState.stopRequested && effectiveChatId == npuChatId && responseSpeechSession.generation == npuSpeechGeneration) {
+                                                                                            if (partialGate.acceptsUpdate(
+                                                                                                    requestEpoch = npuRunGuardEpoch,
+                                                                                                    currentEpoch = streamingGuardEpoch,
+                                                                                                    requestChatId = npuChatId,
+                                                                                                    currentChatId = effectiveChatId,
+                                                                                                    stopRequested = localInferenceRunState.stopRequested,
+                                                                                                    imageCallbacksAllowed = imageRunLease?.acceptsCallbacks != false,
+                                                                                                )) {
                                                                                                 coroutineScope.launch {
-                                                                                                    if (imageRunLease?.acceptsCallbacks == false || !partialGate.acceptsUpdates || localInferenceRunState.stopRequested || effectiveChatId != npuChatId || responseSpeechSession.generation != npuSpeechGeneration) return@launch
+                                                                                                    if (!partialGate.acceptsUpdate(
+                                                                                                            requestEpoch = npuRunGuardEpoch,
+                                                                                                            currentEpoch = streamingGuardEpoch,
+                                                                                                            requestChatId = npuChatId,
+                                                                                                            currentChatId = effectiveChatId,
+                                                                                                            stopRequested = localInferenceRunState.stopRequested,
+                                                                                                            imageCallbacksAllowed = imageRunLease?.acceptsCallbacks != false,
+                                                                                                        )) return@launch
                                                                                                     localPartialStreamingState = localPartialStreamingState.onPartialReceived()
-                                                                                                                                                                                                        localStreamingUiState = localStreamingUiState.copy(responseText = partial)
+                                                                                                    localStreamingUiState = localStreamingUiState.copy(responseText = partial)
                                                                                                     localStreamingUiState = localStreamingUiState.withDelayedPlaceholder(false)
                                                                                                     suppressNpuStandardRouteDevDiagnosticsUntilReplyDisplayed = false
                                                                                                 }
@@ -6651,7 +6647,9 @@ fun Home(
                                                                 npuStandardRouteTtsRequested = true
                                                                 try {
                                                                     if (prepareResponseSpeechPlayback()) {
-                                                                        speakStreamingTailIfNeeded(npuStandardRouteSafeTtsText)
+                                                                        // Keep the same accepted source as partials; TTS formatting
+                                                                        // happens only after the unsaid cursor has been applied.
+                                                                        speakStreamingTailIfNeeded(npuStandardRouteSafeUiText)
                                                                     }
                                                                     npuStandardRouteTtsStarted = true
                                                                     npuStandardRouteDeliveryPath =
@@ -6950,7 +6948,7 @@ fun Home(
                                                                             ),
                                                                         )
                                                                             val s5SavedResult = try {
-                                                                                speakStreamingTailIfNeeded(s1Result.ttsText)
+                                                                                speakStreamingTailIfNeeded(s1Result.actualDisplayText)
                                                                                 buildNpuStandardRouteS5TtsSavedResult(
                                                                                     s1Result = s1Result,
                                                                                     finalAssistantText = s1Result.ttsText,
@@ -11844,7 +11842,17 @@ fun shouldRefreshRender(
 internal fun findStreamingTtsBreakIndex(remaining: String): Int {
     val sentenceBreakIndex = remaining.lastIndexOfAny(charArrayOf('。', '！', '？', '\n'))
     if (sentenceBreakIndex >= 0) return sentenceBreakIndex
-    return remaining.lastIndexOfAny(charArrayOf('、', ',', '，', ';', '；', ':', '：'))
+    return remaining.indices.reversed().firstOrNull { index ->
+        when (remaining[index]) {
+            '、', ';', '；' -> true
+            ',', '，', ':', '：' -> {
+                val afterDigit = remaining.getOrNull(index - 1)?.isDigit() == true
+                // At the end of a partial, the next digit may still be on its way.
+                !afterDigit || remaining.getOrNull(index + 1)?.isDigit() == false
+            }
+            else -> false
+        }
+    } ?: -1
 }
 
 private suspend fun initializeLocalInferenceEngineEntry(

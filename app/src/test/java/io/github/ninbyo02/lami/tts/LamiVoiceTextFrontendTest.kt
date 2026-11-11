@@ -151,6 +151,23 @@ class LamiVoiceTextFrontendTest {
             assertPrefillMatchesReference(case, frontend.prepare(case.getString("text")))
         }
     }
+    @Test fun measuredPrefillBudgetMatchesActualFrontendRowsWithoutReadingWeights() {
+        val tokenizer = tokenizer()
+        val frontend = LamiVoiceTextFrontend(tokenizer, { row("text_rows", it) }, { row("codec_rows", it) })
+        val cases = fixture.getJSONArray("cases")
+        for (index in 0 until cases.length()) {
+            val text = cases.getJSONObject(index).getString("text")
+            assertEquals(text, frontend.prepare(text).prefill.size, LamiVoiceTextFrontend.prefillSize(text, tokenizer))
+        }
+    }
+
+    @Test fun overBudgetInputIsRejectedBeforeAnyEmbeddingRead() {
+        var reads = 0
+        val frontend = LamiVoiceTextFrontend(tokenizer(), { reads++; FloatArray(1024) }, { reads++; FloatArray(1024) })
+        val failure = runCatching { frontend.prepare("はい。".repeat(100), capacity = 128) }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+        assertEquals(0, reads)
+    }
     @Test fun repeatedSpeechCodecRowIsLoadedOnceWithoutChangingPrefill() {
         val codecCalls = linkedMapOf<Int, Int>()
         val frontend = LamiVoiceTextFrontend(

@@ -1,4 +1,6 @@
+#if defined(__aarch64__)
 #include <arm_neon.h>
+#endif
 #include <jni.h>
 #include <cstring>
 #include <cstdint>
@@ -80,14 +82,31 @@ Java_io_github_ninbyo02_lami_tts_LamiVoiceMatrixKernels_logitsPacked4(
     float* scores = env->GetFloatArrayElements(result, nullptr);
     if (!scores) { env->ReleaseFloatArrayElements(hidden, input, JNI_ABORT); return nullptr; }
     for (int r = 0; r < rows; r += 4) {
-        float32x4_t sums = vdupq_n_f32(0);
         const float* block = weights + r * 1024;
+#if defined(__aarch64__)
+        float32x4_t sums = vdupq_n_f32(0);
         for (int j = 0; j < 1024; ++j) {
             // Separate multiply/add, with -ffp-contract=off in the existing build.
             const float32x4_t product = vmulq_n_f32(vld1q_f32(block + j * 4), input[j]);
             sums = vaddq_f32(sums, product);
         }
         vst1q_f32(scores + r, sums);
+#else
+        // Four independent scalar rows retain the NEON lane reduction order.
+        // The same strict FP32 flags prevent fused multiply-add or reassociation.
+        float sa = 0, sb = 0, sc = 0, sd = 0;
+        for (int j = 0; j < 1024; ++j) {
+            const float x = input[j];
+            sa += block[j * 4] * x;
+            sb += block[j * 4 + 1] * x;
+            sc += block[j * 4 + 2] * x;
+            sd += block[j * 4 + 3] * x;
+        }
+        scores[r] = sa;
+        scores[r + 1] = sb;
+        scores[r + 2] = sc;
+        scores[r + 3] = sd;
+#endif
     }
     env->ReleaseFloatArrayElements(hidden, input, JNI_ABORT);
     env->ReleaseFloatArrayElements(result, scores, 0);

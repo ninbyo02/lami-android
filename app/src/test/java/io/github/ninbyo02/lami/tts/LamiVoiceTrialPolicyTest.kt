@@ -4,6 +4,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LamiVoiceTrialPolicyTest {
+    @Test fun explicitQwenChoiceStreamsWithoutRequiringDiagnosticPackageOrPreference() {
+        for (name in listOf("io.github.ninbyo02.lami", "io.github.ninbyo02.lami.assistantprobe")) {
+            assertTrue(LamiVoiceTrialPolicy.streamingEnabledForSelection(true, name) {
+                error("Explicit selection must not read the diagnostic preference")
+            })
+            assertFalse(LamiVoiceTrialPolicy.streamingEnabledForSelection(false, name) {
+                error("Legacy selection retains the package policy")
+            })
+        }
+    }
     @Test fun deliveryPackageStreamsWithoutReadingOrWritingPreferences() {
         assertTrue(LamiVoiceTrialPolicy.streamingEnabled(
             "io.github.ninbyo02.lami.voiceintegrationtrial",

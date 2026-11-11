@@ -118,20 +118,39 @@ internal object LamiPreparedVoiceSynthesizer {
         return result
     }
 
+    /** Plan before any forward call, using the exact tokenizer and selected main cache. */
+    suspend fun planText(root: File, text: String, progress: (String) -> Unit = {}): List<String> =
+        LamiVoiceModuleCache.withSession(root) { session ->
+            val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
+            require(ctx.getInt("version") == 2 && ctx.getInt("capacity") == 256)
+            session.verifyBundle(root, ctx.getJSONObject("sha256"), progress)
+            val capacity = mainCacheCapacity(ctx)
+            val tokenizer = session.tokenizer(root.resolve("text_frontend"), progress)
+            LamiQwenTextChunks.split(text, capacity) { LamiVoiceTextFrontend.prefillSize(it, tokenizer) }
+                .also { chunks -> progress("metric=text_chunks count=${chunks.count { it.isNotBlank() }} capacity=$capacity max_code_points=${LamiQwenTextChunks.MAX_CODE_POINTS}") }
+        }
+
     /** Arbitrary Japanese sentence, bounded by the selected diagnostic main cache. */
-    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, progress: (String) -> Unit = {}): LamiVoiceCodes {
+    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, progress: (String) -> Unit = {}): LamiVoiceCodes =
+        generateText(root, text, session, reuseCpWorkspace, onPrefix, onBundleVerified = {}, progress = progress)
+
+    /** The hook may start owned work only after the full bundle verification succeeds. */
+    suspend fun generateText(root: File, text: String, session: LamiVoiceModuleCache.Session, reuseCpWorkspace: Boolean = true, onPrefix: (suspend (LamiVoiceCodes) -> Unit)? = null, onBundleVerified: suspend () -> Unit, progress: (String) -> Unit = {}): LamiVoiceCodes {
         val timing = WorkTiming()
         progress("stage=hash_validation")
         val ctx = JSONObject(root.resolve("voice-text-bundle.json").readText())
         require(ctx.getInt("version") == 2 && ctx.getInt("capacity") == 256)
         val files = ctx.getJSONObject("sha256")
         session.verifyBundle(root, files, progress)
+        onBundleVerified()
+        val mainProgram = mainProgram(ctx)
+        val mainCapacity = mainCacheCapacity(ctx)
         val preparationStarted = android.os.SystemClock.elapsedRealtime()
         val head = Matrix(root.resolve("main.head.f32"), 3072, timing, "main_head")
         val embedding = Matrix(root.resolve("main.embedding.f32"), 3072)
         val projected = Matrix(root.resolve("text_frontend/projected-text.f32"), 151936)
         val frontend = LamiVoiceTextFrontend(session.tokenizer(root.resolve("text_frontend"), progress), projected::row, embedding::row)
-        val prepared = frontend.prepare(text)
+        val prepared = frontend.prepare(text, mainCapacity)
         val prepacked = ctx.optBoolean("cp_head_prepacked4", false)
         require(!prepacked || !ctx.optBoolean("cp_head_fixed_benchmark", false)) { "Fixed benchmark requires row-major heads" }
         val cpHeads = (0..14).map {
@@ -149,19 +168,6 @@ internal object LamiPreparedVoiceSynthesizer {
         val seen = mutableSetOf<Int>()
         val sampler = LamiVoiceCodecSampler()
         var endedOnEos = false
-        val mainProgram = ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte")
-        require(mainProgram.matches(Regex("[A-Za-z0-9._-]+")) && files.has(mainProgram)) { "Main program absent from verified bundle" }
-        val mainCapacity = when (mainProgram) {
-            "main-int8-permute-cache128.pte" -> {
-                require(files.getString(mainProgram) == "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c") { "Unverified main cache128 pilot" }
-                128
-            }
-            "main-int8-grouped-cache128.pte" -> {
-                require(files.getString(mainProgram) == "83ef62e9ac80c6db43d532b43c7e85d0586e5860e6718c552054f321d8da5dca") { "Unverified main grouped pilot" }
-                128
-            }
-            else -> 256
-        }
         require(prepared.prefill.size < mainCapacity) { "Text leaves no generation space in selected main cache" }
         progress("metric=main_program name=$mainProgram capacity=$mainCapacity")
         progress("metric=text_prepare ms=${android.os.SystemClock.elapsedRealtime() - preparationStarted}")
@@ -245,6 +251,27 @@ internal object LamiPreparedVoiceSynthesizer {
         check(endedOnEos) { if (onPrefix == null) "Speech did not reach EOS within model cache; incomplete audio withheld" else "Speech stream did not reach EOS; provisional audio stopped" }
         require(frames.size in 2..256)
         return LamiVoiceCodes(LongArray(frames.size * 16) { i -> frames[i % frames.size][i / frames.size] }, frames.size)
+    }
+
+    private fun mainProgram(ctx: JSONObject): String =
+        ctx.optString("main_program", "stateless-28-int4-cache256-et14.pte").also { name ->
+            require(name.matches(Regex("[A-Za-z0-9._-]+")) && ctx.getJSONObject("sha256").has(name)) { "Main program absent from verified bundle" }
+        }
+
+    internal fun mainCacheCapacity(ctx: JSONObject): Int {
+        val main = mainProgram(ctx)
+        val hashes = ctx.getJSONObject("sha256")
+        return when (main) {
+            "main-int8-permute-cache128.pte" -> {
+                require(hashes.getString(main) == "ec6e5027e623b054f711905113c1424b0a6de0cc7e43dc11b24ccc03b0dc1d8c") { "Unverified main cache128 pilot" }
+                128
+            }
+            "main-int8-grouped-cache128.pte" -> {
+                require(hashes.getString(main) == "83ef62e9ac80c6db43d532b43c7e85d0586e5860e6718c552054f321d8da5dca") { "Unverified main grouped pilot" }
+                128
+            }
+            else -> 256
+        }
     }
 
     private fun vector(array: JSONArray): FloatArray {

@@ -145,13 +145,13 @@ class LamiPlaybackUnderrunAccountingTest {
 
     @Test fun streamPlayerStatsComeFromPostPlaybackUnderrunObservation() {
         val source = File(
-            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+            "src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
         ).readText()
 
         val sessionStart = source.indexOf(
             "val underrunSession = LamiPlaybackUnderrunAccounting.session(track.underrunCount)",
         )
-        val playbackDrain = source.indexOf("while (track.playbackHeadPosition < submitted)")
+        val playbackDrain = source.indexOf("while (playbackHead() < submitted)")
         val finalObservation = source.indexOf(
             "val observedUnderruns = underrunSession.observe(track.underrunCount)",
         )
@@ -165,7 +165,7 @@ class LamiPlaybackUnderrunAccountingTest {
 
     @Test fun streamPlayerStatsDoNotExposeRawCumulativeTrackCounter() {
         val source = File(
-            "src/debug/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
+            "src/main/java/io/github/ninbyo02/lami/tts/LamiPcmStreamPlayer.kt",
         ).readText()
 
         val statsUnderrunArgument = Regex("""return\s+Stats\(\s*submitted\s*,\s*([^)]+)\)""")

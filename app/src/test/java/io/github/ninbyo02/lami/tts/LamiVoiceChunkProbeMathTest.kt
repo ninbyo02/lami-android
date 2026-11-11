@@ -57,13 +57,41 @@ class LamiVoiceChunkProbeMathTest {
                 val expected = runCatching { reference(previous, next) }
                 val actual = runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, next) }
                 assertEquals(expected.exceptionOrNull()?.javaClass, actual.exceptionOrNull()?.javaClass)
-                assertEquals(expected.exceptionOrNull()?.message, actual.exceptionOrNull()?.message)
+                val expectedMessage = expected.exceptionOrNull()?.message
+                if (expectedMessage == "Provisional PCM changed after more codes") {
+                    assertTrue(actual.exceptionOrNull()?.message.orEmpty().startsWith(expectedMessage))
+                } else assertEquals(expectedMessage, actual.exceptionOrNull()?.message)
                 if (expected.isSuccess) {
                     assertArrayEquals(expected.getOrThrow().map(Float::toRawBits).toIntArray(),
                         actual.getOrThrow().map(Float::toRawBits).toIntArray())
                 }
             }
         }
+    }
+    @Test fun prefixDifferenceReportsMagnitudeAndChangedExtentWithoutWeakeningGuard() {
+        val previous = floatArrayOf(0f, 0.25f, 0.5f, 0.75f)
+        val next = floatArrayOf(0f, 0.25f + 1e-6f, 0.5f, 0.70f, 0.9f)
+        val difference = LamiVoiceChunkProbeMath.prefixDifference(previous, next)
+        assertEquals(2, difference.changedSamples)
+        assertEquals(1, difference.firstChanged)
+        assertEquals(3, difference.lastChanged)
+        assertEquals(3, difference.maxDifferenceIndex)
+        assertEquals(0.05, difference.maxAbsolute, 1e-7)
+        assertTrue(difference.rms > 0.024)
+        assertTrue(runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, next) }.isFailure)
+    }
+    @Test fun toleranceRequiresBothPeakAndRmsLimitsAndNeverAcceptsNonfiniteSamples() {
+        val tolerance = LamiVoiceChunkProbeMath.PrefixTolerance(1e-5, 1e-6)
+        val previous = FloatArray(100)
+        val bounded = FloatArray(101).apply { this[0] = 5e-6f; this[100] = 0.1f }
+        assertArrayEquals(floatArrayOf(0.1f), LamiVoiceChunkProbeMath.appendedPcm(previous, bounded, tolerance), 0f)
+        val excessivePeak = bounded.copyOf().apply { this[0] = 1.1e-5f }
+        assertTrue(runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, excessivePeak, tolerance) }.isFailure)
+        val excessiveRms = FloatArray(101) { 2e-6f }
+        assertTrue(runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, excessiveRms, tolerance) }.isFailure)
+        val nonfinite = bounded.copyOf().apply { this[0] = Float.NaN }
+        assertTrue(runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, nonfinite, tolerance) }.isFailure)
+        assertTrue(runCatching { LamiVoiceChunkProbeMath.appendedPcm(previous, bounded) }.isFailure)
     }
     @Test(expected = IllegalArgumentException::class)
     fun changedPrefixCannotBeSubmittedAsNewAudio() {

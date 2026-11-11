@@ -210,6 +210,7 @@ fun Settings(
     var duplicateUrls by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
     var isValidatingConnections by remember { mutableStateOf(false) }
     val settingsPreferences = remember { SettingsPreferences(context) }
+    val ttsPreviewController = rememberTtsPreviewController()
     val settingsData by settingsPreferences.settingsData.collectAsState(initial = SettingsData())
     val providerBaseUrl = serverInputs.firstOrNull { it.isActive }?.url
         ?.let { normalizeUrlForSave(normalizeUrlInput(it)) }.orEmpty()
@@ -1098,6 +1099,8 @@ fun Settings(
                         }
                     )
                 }
+                Spacer(modifier = Modifier.height(2.dp))
+                TtsEngineSettingsSection(settingsPreferences, ttsPreviewController)
                 if (BuildConfig.DEBUG) {
                     // 開発者向け実験機能のため、DEBUGビルドのみ表示する
                     Spacer(modifier = Modifier.height(2.dp))

@@ -8,11 +8,23 @@ internal class LamiVoiceTextFrontend(
     private val projectedText: (Int) -> FloatArray,
     private val codecEmbedding: (Int) -> FloatArray,
 ) {
+    companion object {
+        private fun tokenIds(text: String, tokenizer: LamiQwenTokenizer): IntArray {
+            require(text.isNotBlank()) { "Empty speech text" }
+            require(!text.contains("<|")) { "Special-token syntax is not spoken text" }
+            return tokenizer.encode("<|im_start|>assistant\n$text<|im_end|>\n<|im_start|>assistant\n")
+                .also { require(it.size >= 9) }
+        }
+
+        /** Count the real wrapped text tokens without mapping/loading embedding weights. */
+        fun prefillSize(text: String, tokenizer: LamiQwenTokenizer): Int = tokenIds(text, tokenizer).size + 3
+    }
+
     fun prepare(text: String, capacity: Int = 256): LamiVoiceTextContext {
-        require(text.isNotBlank()) { "Empty speech text" }
-        require(!text.contains("<|")) { "Special-token syntax is not spoken text" }
-        val ids = tokenizer.encode("<|im_start|>assistant\n$text<|im_end|>\n<|im_start|>assistant\n")
-        require(ids.size >= 9)
+        val ids = tokenIds(text, tokenizer)
+        // Three header rows, six codec tags, the body (ids - eight wrapper
+        // tokens), then text EOS and codec-end rows: ids.size + three in total.
+        require(ids.size + 3 < capacity - 2) { "Speech text does not fit model cache" }
         val pad = projectedText(151671)
         val bos = projectedText(151672)
         val eos = projectedText(151673)
