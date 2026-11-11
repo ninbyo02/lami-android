@@ -13,6 +13,7 @@ import time
 import unicodedata
 import wave
 from pathlib import Path
+from codec_frame_feedback import next_main_input
 
 
 def main():
@@ -63,7 +64,7 @@ def main():
         return candidates[-1][0]
     class Main:
         def __init__(self):
-            self.method = Runtime.get().load_program(a.root / cfg['main_program']).load_method('forward')
+            self.method = Runtime.get().load_program(a.root / 'stateless-28-int4-cache256-et14.pte').load_method('forward')
             self.k = torch.zeros(28, 1, 8, 256, 128)
             self.v = torch.zeros_like(self.k)
         def step(self, x, position):
@@ -142,7 +143,6 @@ def main():
             seen.add(token)
             row = [token]
             last = embedding[token]
-            total = last.copy()
             cache = cache_zero()
             if cpu_method is not None:
                 cpu_k.zero_(); cpu_v.zero_()
@@ -151,11 +151,12 @@ def main():
             for group in range(15):
                 code = sample(heads[group], ch, rng)
                 row.append(code)
-                total += cp_embeddings[group][code]
                 if group < 14: ch = cp_step(cp_embeddings[group][code], group+2)
             rows.append(row)
             print('frame', frame, 'elapsed_s', round(time.monotonic()-started, 2), flush=True)
-            if frame + 1 < a.max_frames: h = main.step(total+pad, len(prefill)+frame)
+            if frame + 1 < a.max_frames:
+                next_embedding = next_main_input(row, embedding, cp_embeddings, pad)
+                h = main.step(next_embedding, len(prefill)+frame)
     except Exception as ex:
         (a.output_dir/'failure.json').write_text(json.dumps({'reason': str(ex), 'completed_frames': len(rows)})+'\n')
         raise
