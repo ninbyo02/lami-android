@@ -2,8 +2,10 @@ package io.github.ninbyo02.lami.ui.screens.home
 
 import android.os.SystemClock
 import android.util.Log
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.ninbyo02.lami.MainActivity
 import io.github.ninbyo02.lami.tts.LamiTtsPreviewController
 import io.github.ninbyo02.lami.tts.LamiVoiceEngineFactory
 import io.github.ninbyo02.lami.tts.TtsEngineChoice
@@ -34,6 +36,7 @@ class GenieXChatDeviceInstrumentedTest {
         val args = InstrumentationRegistry.getArguments()
         val compute = LamiComputeChoice.entries.single { it.wireName == (args.getString("genieXCompute") ?: "npu") }
         val voice = TtsEngineChoice.fromStoredValue(args.getString("ttsSmokeEngine"))
+        val activity = ActivityScenario.launch(MainActivity::class.java)
         val client = GenieXBridgeClient(context)
         val history = mutableListOf<LocalConversationTurn>()
         var reply = ""
@@ -79,6 +82,7 @@ class GenieXChatDeviceInstrumentedTest {
             }
         } finally {
             client.close()
+            activity.close()
         }
     }
 
