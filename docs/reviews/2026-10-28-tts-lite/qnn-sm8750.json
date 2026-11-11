@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "scope": "host_offline_sm8750_decoder_compilation",
+  "sdk": "2.46.0.260424",
+  "image": "lami-tts-lite-qairt:20261028",
+  "onnx_sha256": "2d6a7419afdc15652f46549a225c792e435402315592bd9755a82dd7a35b445f",
+  "target": "SM8750",
+  "precision": "FP16",
+  "vtcm_mb": 8,
+  "device_execution": "unverified",
+  "npu_latency": "unverified",
+  "steps": [
+    {
+      "name": "convert",
+      "command": [
+        "/work/qairt-venv/bin/python",
+        "/sdk/bin/x86_64-linux-clang/qnn-onnx-converter",
+        "--input_network",
+        "/work/decoder-32-opset13/decoder.onnx",
+        "--output_path",
+        "/work/qnn-sm8750-verified/decoder.cpp",
+        "--float_bitwidth",
+        "16"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 3596.631544001866,
+      "log_sha256": "444d3230d9b68da05361d613b540a2dd73db54b49b6783eeca4aa58aea81c8d0"
+    },
+    {
+      "name": "model_library",
+      "command": [
+        "/work/qairt-venv/bin/python",
+        "/sdk/bin/x86_64-linux-clang/qnn-model-lib-generator",
+        "-c",
+        "/work/qnn-sm8750-verified/decoder.cpp",
+        "-b",
+        "/work/qnn-sm8750-verified/decoder.bin",
+        "-o",
+        "/work/qnn-sm8750-verified/model_libs",
+        "-t",
+        "x86_64-linux-clang"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 3912.910054990789,
+      "log_sha256": "729e133684c0c0bc185d737ad36fce7993314c64d659df04e5dc78a374314e1f"
+    },
+    {
+      "name": "htp_context",
+      "command": [
+        "/sdk/bin/x86_64-linux-clang/qnn-context-binary-generator",
+        "--model",
+        "/work/qnn-sm8750-verified/model_libs/x86_64-linux-clang/libdecoder.so",
+        "--backend",
+        "/sdk/lib/x86_64-linux-clang/libQnnHtp.so",
+        "--binary_file",
+        "decoder-sm8750",
+        "--output_dir",
+        "/work/qnn-sm8750-verified/context",
+        "--htp_socs",
+        "sm8750",
+        "--vtcm_override",
+        "8"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 3581.652421999024,
+      "log_sha256": "62241ade7cb587d7ad98edcd36ca8075f3833b7ff94c1f3280d79416b39801f5"
+    }
+  ],
+  "status": "compiled_not_device_validated",
+  "context_file": "decoder-sm8750.SM8750.bin",
+  "context_sha256": "a58d8c028d88e800bef802fb1a492d29f222cf15a854297ed01d64bd859a52f7",
+  "context_bytes": 30638080
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "scope": "cpu_acoustic_split_and_fixed_shape_chunk_parity",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+    "config_sha256": "307c9a3356f037c6164563fd5a67f9d8bd232e681b6ea4b4d8d6312cd3aa36c7",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "phoneme_profile": "melo_long_vowels_v1",
+    "reading_version": "0.4.1",
+    "training": {
+      "voice": "lami_cute_v3_03_trial_not_adopted",
+      "optimizer_steps": 1000,
+      "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+      "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "frozen_modules": [
+        "enc_p",
+        "dp",
+        "sdp",
+        "emb_g"
+      ],
+      "phoneme_profile": "melo_long_vowels_v1"
+    }
+  },
+  "core_frames": 16,
+  "context_frames": 16,
+  "window_frames": 48,
+  "tolerance": 0.0001,
+  "passed": 16,
+  "total": 16,
+  "worst_pcm_error": 1.7695128917694092e-06,
+  "worst_latent_error": 0.0,
+  "negative_controls": {
+    "no_context": {
+      "max_abs_error": 0.640654444694519,
+      "rms_error": 0.0722722424219075,
+      "max_seam_error": 0.5737913846969604,
+      "seams": 10
+    },
+    "unmasked_padding": {
+      "max_abs_error": 0.0005275987205095589,
+      "rms_error": 1.3375130612067748e-05,
+      "max_seam_error": 0.0003353443171363324,
+      "seams": 10
+    }
+  },
+  "negative_controls_detected": true,
+  "npu_output": "unverified",
+  "listening": "pending",
+  "notes": [
+    "Masking is applied inside the network, not just to its final output.",
+    "This validates the tested checkpoint and inputs on CPU, not HTP FP16 output.",
+    "Timing is measured in a separate process without a preceding full-audio reference run."
+  ]
+}

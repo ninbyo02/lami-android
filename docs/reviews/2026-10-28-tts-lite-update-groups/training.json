@@ -1,0 +1,389 @@
+{
+  "low-lr-all": {
+    "schema_version": 1,
+    "scope": "bounded_gpu_full_gan_finetuning_trial_not_adopted_voice",
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+    "prepared_train_sha256": "3b668ca319d4afb3d991f69d839dc887ad65673740423e7473c2b57e4057c2d7",
+    "prepared_validation_sha256": "58c47f9b246c22bdb615b2420b481dea15de94bce1c4aab8a5ea2a302f232a91",
+    "discriminators": {
+      "initialization": "fresh_upstream_default_seed42",
+      "pretrained_weights": false
+    },
+    "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+    "hip": "7.2.53211-e1a6bc5663",
+    "device": "AMD Radeon AI PRO R9700",
+    "requested_steps": 400,
+    "max_minutes": 10.0,
+    "batch_size": 4,
+    "learning_rate": 3e-06,
+    "discriminator_learning_rate": 0.0002,
+    "precision": "float32",
+    "seed": 42,
+    "train_examples": 480,
+    "validation_examples": 20,
+    "frozen_modules": [
+      "enc_p",
+      "dp",
+      "sdp",
+      "emb_g"
+    ],
+    "updated_modules": [
+      "enc_q",
+      "flow",
+      "dec"
+    ],
+    "trainable_parameters": 43313408,
+    "phoneme_profile": "melo_long_vowels_v1",
+    "evaluation_seeds": [
+      42,
+      43,
+      44
+    ],
+    "evaluation_interval": 400,
+    "periodic_validations": [
+      {
+        "step": 400,
+        "held_out_examples": 20,
+        "generated_requests": 60,
+        "protocol": "per_example_seed_v2_mas_noise_zero",
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "mean": {
+          "mel_l1": 0.6576188400387764,
+          "duration": 3.624220887819926,
+          "kl": 5.733262677987416
+        },
+        "listening": "pending",
+        "notes": [
+          "Teacher-forced losses do not establish voice similarity or intelligibility.",
+          "Generated audio uses the held-out text with no reference audio conditioning."
+        ]
+      }
+    ],
+    "full_gan_losses": [
+      "mel",
+      "duration",
+      "kl",
+      "adversarial",
+      "feature_matching",
+      "duration_adversarial"
+    ],
+    "notes": [
+      "Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
+      "CPU data spectra are cached in memory; no original dataset files are written.",
+      "No phone execution, NPU timing or subjective quality adoption is performed."
+    ],
+    "baseline_validation": {
+      "step": 0,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.9097089094420274,
+        "duration": 4.20975863536199,
+        "kl": 14.895442008972168
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    "optimizer_steps": 400,
+    "epochs_entered": 4,
+    "elapsed_training_seconds": 271.067860405019,
+    "termination": "step_limit",
+    "peak_gpu_allocated_bytes": 4754167808,
+    "candidate": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-all-400/candidate-step000400",
+    "candidate_sha256": "b7a7c5d6a89568cff78586ab2fca776364be8ed0eafb00709ba52929b2a6560a",
+    "final_validation": {
+      "step": 400,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.6576188400387764,
+        "duration": 3.624220887819926,
+        "kl": 5.733262677987416
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    }
+  },
+  "low-lr-fixed-decoder": {
+    "schema_version": 1,
+    "scope": "bounded_gpu_full_gan_finetuning_trial_not_adopted_voice",
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+    "prepared_train_sha256": "3b668ca319d4afb3d991f69d839dc887ad65673740423e7473c2b57e4057c2d7",
+    "prepared_validation_sha256": "58c47f9b246c22bdb615b2420b481dea15de94bce1c4aab8a5ea2a302f232a91",
+    "discriminators": {
+      "initialization": "fresh_upstream_default_seed42",
+      "pretrained_weights": false
+    },
+    "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+    "hip": "7.2.53211-e1a6bc5663",
+    "device": "AMD Radeon AI PRO R9700",
+    "requested_steps": 400,
+    "max_minutes": 10.0,
+    "batch_size": 4,
+    "learning_rate": 3e-06,
+    "discriminator_learning_rate": 0.0002,
+    "precision": "float32",
+    "seed": 42,
+    "train_examples": 480,
+    "validation_examples": 20,
+    "frozen_modules": [
+      "enc_p",
+      "dp",
+      "sdp",
+      "emb_g",
+      "dec"
+    ],
+    "updated_modules": [
+      "enc_q",
+      "flow"
+    ],
+    "trainable_parameters": 28782336,
+    "phoneme_profile": "melo_long_vowels_v1",
+    "evaluation_seeds": [
+      42,
+      43,
+      44
+    ],
+    "evaluation_interval": 400,
+    "periodic_validations": [
+      {
+        "step": 400,
+        "held_out_examples": 20,
+        "generated_requests": 60,
+        "protocol": "per_example_seed_v2_mas_noise_zero",
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "mean": {
+          "mel_l1": 0.89125372543931,
+          "duration": 3.628679402669271,
+          "kl": 5.776270246505737
+        },
+        "listening": "pending",
+        "notes": [
+          "Teacher-forced losses do not establish voice similarity or intelligibility.",
+          "Generated audio uses the held-out text with no reference audio conditioning."
+        ]
+      }
+    ],
+    "full_gan_losses": [
+      "mel",
+      "duration",
+      "kl",
+      "adversarial",
+      "feature_matching",
+      "duration_adversarial"
+    ],
+    "notes": [
+      "Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
+      "CPU data spectra are cached in memory; no original dataset files are written.",
+      "No phone execution, NPU timing or subjective quality adoption is performed."
+    ],
+    "baseline_validation": {
+      "step": 0,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.9097089094420274,
+        "duration": 4.20975863536199,
+        "kl": 14.895442008972168
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    "optimizer_steps": 400,
+    "epochs_entered": 4,
+    "elapsed_training_seconds": 218.6446829380002,
+    "termination": "step_limit",
+    "peak_gpu_allocated_bytes": 4564493824,
+    "candidate": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-fixed-decoder-400/candidate-step000400",
+    "candidate_sha256": "d6006608a79635106c108983c165bc36d4b1150b3e5caa07f35d55515ab5231f",
+    "final_validation": {
+      "step": 400,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.89125372543931,
+        "duration": 3.628679402669271,
+        "kl": 5.776270246505737
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    }
+  },
+  "low-lr-fixed-flow": {
+    "schema_version": 1,
+    "scope": "bounded_gpu_full_gan_finetuning_trial_not_adopted_voice",
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+    "prepared_train_sha256": "3b668ca319d4afb3d991f69d839dc887ad65673740423e7473c2b57e4057c2d7",
+    "prepared_validation_sha256": "58c47f9b246c22bdb615b2420b481dea15de94bce1c4aab8a5ea2a302f232a91",
+    "discriminators": {
+      "initialization": "fresh_upstream_default_seed42",
+      "pretrained_weights": false
+    },
+    "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+    "hip": "7.2.53211-e1a6bc5663",
+    "device": "AMD Radeon AI PRO R9700",
+    "requested_steps": 400,
+    "max_minutes": 10.0,
+    "batch_size": 4,
+    "learning_rate": 3e-06,
+    "discriminator_learning_rate": 0.0002,
+    "precision": "float32",
+    "seed": 42,
+    "train_examples": 480,
+    "validation_examples": 20,
+    "frozen_modules": [
+      "enc_p",
+      "dp",
+      "sdp",
+      "emb_g",
+      "flow"
+    ],
+    "updated_modules": [
+      "enc_q",
+      "dec"
+    ],
+    "trainable_parameters": 23452544,
+    "phoneme_profile": "melo_long_vowels_v1",
+    "evaluation_seeds": [
+      42,
+      43,
+      44
+    ],
+    "evaluation_interval": 400,
+    "periodic_validations": [
+      {
+        "step": 400,
+        "held_out_examples": 20,
+        "generated_requests": 60,
+        "protocol": "per_example_seed_v2_mas_noise_zero",
+        "seeds": [
+          42,
+          43,
+          44
+        ],
+        "mean": {
+          "mel_l1": 0.6607264387110869,
+          "duration": 4.245709037780761,
+          "kl": 12.174147764841715
+        },
+        "listening": "pending",
+        "notes": [
+          "Teacher-forced losses do not establish voice similarity or intelligibility.",
+          "Generated audio uses the held-out text with no reference audio conditioning."
+        ]
+      }
+    ],
+    "full_gan_losses": [
+      "mel",
+      "duration",
+      "kl",
+      "adversarial",
+      "feature_matching",
+      "duration_adversarial"
+    ],
+    "notes": [
+      "Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
+      "CPU data spectra are cached in memory; no original dataset files are written.",
+      "No phone execution, NPU timing or subjective quality adoption is performed."
+    ],
+    "baseline_validation": {
+      "step": 0,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.9097089094420274,
+        "duration": 4.20975863536199,
+        "kl": 14.895442008972168
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    "optimizer_steps": 400,
+    "epochs_entered": 4,
+    "elapsed_training_seconds": 236.1088498409954,
+    "termination": "step_limit",
+    "peak_gpu_allocated_bytes": 3967677952,
+    "candidate": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/voice-review-low-lr-fixed-flow-400/candidate-step000400",
+    "candidate_sha256": "6b83c1291ac3255788bce06d1488a7992a32f732c8671fee10078f3f251a36b7",
+    "final_validation": {
+      "step": 400,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.6607264387110869,
+        "duration": 4.245709037780761,
+        "kl": 12.174147764841715
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    }
+  }
+}

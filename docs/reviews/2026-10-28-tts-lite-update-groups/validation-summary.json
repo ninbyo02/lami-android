@@ -1,0 +1,228 @@
+{
+  "scope": "paired_asr_ablation_diagnostic_not_voice_adoption",
+  "baseline": {
+    "requests": 60,
+    "unique_texts": 20,
+    "errors": 66,
+    "reference_characters": 1599,
+    "kana_cer": 0.04127579737335835,
+    "exact_matches": 28
+  },
+  "arms": {
+    "prior-400": {
+      "requests": 60,
+      "unique_texts": 20,
+      "errors": 88,
+      "reference_characters": 1599,
+      "kana_cer": 0.05503439649781113,
+      "exact_matches": 27,
+      "paired_requests": {
+        "better": 8,
+        "worse": 9,
+        "same": 43
+      },
+      "by_seed": {
+        "42": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 27,
+          "reference_characters": 533,
+          "kana_cer": 0.05065666041275797,
+          "exact_matches": 9
+        },
+        "43": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 28,
+          "reference_characters": 533,
+          "kana_cer": 0.0525328330206379,
+          "exact_matches": 9
+        },
+        "44": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 33,
+          "reference_characters": 533,
+          "kana_cer": 0.06191369606003752,
+          "exact_matches": 9
+        }
+      }
+    },
+    "prior-1000": {
+      "requests": 60,
+      "unique_texts": 20,
+      "errors": 60,
+      "reference_characters": 1599,
+      "kana_cer": 0.0375234521575985,
+      "exact_matches": 32,
+      "paired_requests": {
+        "better": 10,
+        "worse": 7,
+        "same": 43
+      },
+      "by_seed": {
+        "42": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 19,
+          "reference_characters": 533,
+          "kana_cer": 0.03564727954971857,
+          "exact_matches": 11
+        },
+        "43": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 14,
+          "reference_characters": 533,
+          "kana_cer": 0.02626641651031895,
+          "exact_matches": 12
+        },
+        "44": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 27,
+          "reference_characters": 533,
+          "kana_cer": 0.05065666041275797,
+          "exact_matches": 9
+        }
+      }
+    },
+    "low-lr-all": {
+      "requests": 60,
+      "unique_texts": 20,
+      "errors": 51,
+      "reference_characters": 1599,
+      "kana_cer": 0.03189493433395872,
+      "exact_matches": 30,
+      "paired_requests": {
+        "better": 7,
+        "worse": 1,
+        "same": 52
+      },
+      "by_seed": {
+        "42": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 18,
+          "reference_characters": 533,
+          "kana_cer": 0.03377110694183865,
+          "exact_matches": 10
+        },
+        "43": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 19,
+          "reference_characters": 533,
+          "kana_cer": 0.03564727954971857,
+          "exact_matches": 9
+        },
+        "44": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 14,
+          "reference_characters": 533,
+          "kana_cer": 0.02626641651031895,
+          "exact_matches": 11
+        }
+      }
+    },
+    "low-lr-fixed-decoder": {
+      "requests": 60,
+      "unique_texts": 20,
+      "errors": 70,
+      "reference_characters": 1599,
+      "kana_cer": 0.043777360850531584,
+      "exact_matches": 27,
+      "paired_requests": {
+        "better": 5,
+        "worse": 5,
+        "same": 50
+      },
+      "by_seed": {
+        "42": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 23,
+          "reference_characters": 533,
+          "kana_cer": 0.043151969981238276,
+          "exact_matches": 9
+        },
+        "43": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 22,
+          "reference_characters": 533,
+          "kana_cer": 0.04127579737335835,
+          "exact_matches": 8
+        },
+        "44": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 25,
+          "reference_characters": 533,
+          "kana_cer": 0.04690431519699812,
+          "exact_matches": 10
+        }
+      }
+    },
+    "low-lr-fixed-flow": {
+      "requests": 60,
+      "unique_texts": 20,
+      "errors": 58,
+      "reference_characters": 1599,
+      "kana_cer": 0.03627267041901188,
+      "exact_matches": 28,
+      "paired_requests": {
+        "better": 5,
+        "worse": 1,
+        "same": 54
+      },
+      "by_seed": {
+        "42": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 19,
+          "reference_characters": 533,
+          "kana_cer": 0.03564727954971857,
+          "exact_matches": 9
+        },
+        "43": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 20,
+          "reference_characters": 533,
+          "kana_cer": 0.0375234521575985,
+          "exact_matches": 9
+        },
+        "44": {
+          "requests": 20,
+          "unique_texts": 20,
+          "errors": 19,
+          "reference_characters": 533,
+          "kana_cer": 0.03564727954971857,
+          "exact_matches": 10
+        }
+      }
+    }
+  },
+  "asr": {
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false
+  },
+  "voice_adopted": false,
+  "listening": "pending",
+  "notes": [
+    "Seeds reuse the same texts; requests are not independent text samples.",
+    "Previously used validation/probe sets are not an untouched final test.",
+    "Kana CER is an ASR/normalization proxy, not measured pronunciation error or voice similarity."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "scope": "host_offline_sm8750_decoder_compilation",
+  "sdk": "2.46.0.260424",
+  "image": "lami-tts-lite-qairt:20261028",
+  "onnx_sha256": "e18808f8247b0e9cae099a6b429a84bbcf6e6196001753c38adac467efe70d0f",
+  "target": "SM8750",
+  "precision": "FP16",
+  "vtcm_mb": 8,
+  "device_execution": "unverified",
+  "npu_latency": "unverified",
+  "steps": [
+    {
+      "name": "convert",
+      "command": [
+        "/work/qairt-venv/bin/python",
+        "/sdk/bin/x86_64-linux-clang/qnn-onnx-converter",
+        "--input_network",
+        "/work/long-vowels-selected-onnx/decoder.onnx",
+        "--output_path",
+        "/work/long-vowels-selected-qnn/decoder.cpp",
+        "--float_bitwidth",
+        "16"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 4287.482693005586,
+      "log_sha256": "cf6b0dfea3c055372effa40b1925608267c46c4f6b42d3ed6578901bf1e5b06e"
+    },
+    {
+      "name": "model_library",
+      "command": [
+        "/work/qairt-venv/bin/python",
+        "/sdk/bin/x86_64-linux-clang/qnn-model-lib-generator",
+        "-c",
+        "/work/long-vowels-selected-qnn/decoder.cpp",
+        "-b",
+        "/work/long-vowels-selected-qnn/decoder.bin",
+        "-o",
+        "/work/long-vowels-selected-qnn/model_libs",
+        "-t",
+        "x86_64-linux-clang"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 4970.966191991465,
+      "log_sha256": "3b9a8b1308217c5d9987165ce5e13347b3145c0a38603b5a313e2830bb0317cf"
+    },
+    {
+      "name": "htp_context",
+      "command": [
+        "/sdk/bin/x86_64-linux-clang/qnn-context-binary-generator",
+        "--model",
+        "/work/long-vowels-selected-qnn/model_libs/x86_64-linux-clang/libdecoder.so",
+        "--backend",
+        "/sdk/lib/x86_64-linux-clang/libQnnHtp.so",
+        "--binary_file",
+        "decoder-sm8750",
+        "--output_dir",
+        "/work/long-vowels-selected-qnn/context",
+        "--htp_socs",
+        "sm8750",
+        "--vtcm_override",
+        "8"
+      ],
+      "returncode": 0,
+      "elapsed_ms": 2237.852840014966,
+      "log_sha256": "dfa788889b26cc91e428632a72c59e4cdab3eba74eeee617c2408376306b8135"
+    }
+  ],
+  "status": "compiled_not_device_validated",
+  "context_file": "decoder-sm8750.SM8750.bin",
+  "context_sha256": "29b7df4d41b23e556a3eb93d2ca1d036581ea3ed299888fa995b940866e3eea6",
+  "context_bytes": 30871552
+}

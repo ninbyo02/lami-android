@@ -1,0 +1,40 @@
+{
+  "scope": "preregistered_bounded_exploratory_update_group_lr_ablation_not_voice_adoption",
+  "data": "lami-voice-long-vowels-44100",
+  "steps": 400,
+  "batch_size": 4,
+  "learning_rate": 3e-06,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "control": "lami-gan-long-vowels-1000/candidate-step000400",
+  "control_learning_rate": 1e-05,
+  "training_script_sha256": "4814e49e24bb02fdedaf9a660fad1703d32a8f823510069502ed915c91e3cfa6",
+  "arms": [
+    {
+      "name": "low-lr-all",
+      "modules": [
+        "enc_q",
+        "flow",
+        "dec"
+      ]
+    },
+    {
+      "name": "low-lr-fixed-decoder",
+      "modules": [
+        "enc_q",
+        "flow"
+      ]
+    },
+    {
+      "name": "low-lr-fixed-flow",
+      "modules": [
+        "enc_q",
+        "dec"
+      ]
+    }
+  ],
+  "selection": "No adoption; compare all arms on the same validation and additional probes; listening pending."
+}

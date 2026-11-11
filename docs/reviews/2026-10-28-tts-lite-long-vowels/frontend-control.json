@@ -1,0 +1,34 @@
+{
+  "scope": "same_stock_jp_weights_cpu_phoneme_profile_ablation",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "phoneme_profile": "melo_legacy",
+    "reading_version": "0.4.1"
+  },
+  "optimizer_steps": 0,
+  "unique_texts": 20,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "baseline": "melo_legacy",
+  "candidate": "melo_long_vowels_v1",
+  "comparisons_sha256": "4489e34cdc0b8ed80a567cdb03fc6cf13a6ce7e9660b37b817e6ee09e0bcd820",
+  "generated_audio": 120,
+  "notes": [
+    "Both profiles use the same unchanged stock JP checkpoint.",
+    "Seeds are reset for each utterance and profile.",
+    "This is not the GPU learning comparison or a voice-quality acceptance test.",
+    "Stock means pretrained Japanese weights with no additional LAMI optimizer steps."
+  ]
+}

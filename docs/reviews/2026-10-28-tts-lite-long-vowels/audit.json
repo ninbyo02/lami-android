@@ -1,0 +1,224 @@
+{
+  "scope": "approved_dataset_long_vowel_and_runtime_id_audit",
+  "voice_id": "lami-cute-v3-03",
+  "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+  "checked_original_rows": 500,
+  "unchanged_audio_files": 500,
+  "unchanged_split_assignments": 500,
+  "changed_phoneme_rows": 448,
+  "restored_vowels": 1268,
+  "runtime_training_id_matches": 500,
+  "phoneme_profile": "melo_long_vowels_v1",
+  "upstream_long_mark_rule": ":",
+  "probes": [
+    {
+      "text": "更新",
+      "reading": "コーシン",
+      "legacy_phones": [
+        "_",
+        "k",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "k",
+        "o",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ]
+    },
+    {
+      "text": "ラミィ",
+      "reading": "ラミー",
+      "legacy_phones": [
+        "_",
+        "r",
+        "a",
+        "m",
+        "i",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "r",
+        "a",
+        "m",
+        "i",
+        "i",
+        "_"
+      ]
+    },
+    {
+      "text": "プライバシー設定",
+      "reading": "プライバシーセッテー",
+      "legacy_phones": [
+        "_",
+        "p",
+        "u",
+        "r",
+        "a",
+        "i",
+        "b",
+        "a",
+        "sh",
+        "i",
+        "s",
+        "e",
+        "q",
+        "t",
+        "e",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "p",
+        "u",
+        "r",
+        "a",
+        "i",
+        "b",
+        "a",
+        "sh",
+        "i",
+        "i",
+        "s",
+        "e",
+        "q",
+        "t",
+        "e",
+        "e",
+        "_"
+      ]
+    },
+    {
+      "text": "ストレージ容量",
+      "reading": "ストレージヨーリョー",
+      "legacy_phones": [
+        "_",
+        "s",
+        "u",
+        "t",
+        "o",
+        "r",
+        "e",
+        "j",
+        "i",
+        "y",
+        "o",
+        "ry",
+        "o",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "s",
+        "u",
+        "t",
+        "o",
+        "r",
+        "e",
+        "e",
+        "j",
+        "i",
+        "y",
+        "o",
+        "o",
+        "ry",
+        "o",
+        "o",
+        "_"
+      ]
+    },
+    {
+      "text": "会話履歴",
+      "reading": "カイワリレキ",
+      "legacy_phones": [
+        "_",
+        "k",
+        "a",
+        "i",
+        "w",
+        "a",
+        "r",
+        "i",
+        "r",
+        "e",
+        "k",
+        "i",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "k",
+        "a",
+        "i",
+        "w",
+        "a",
+        "r",
+        "i",
+        "r",
+        "e",
+        "k",
+        "i",
+        "_"
+      ]
+    },
+    {
+      "text": "コーシン",
+      "reading": "コーシン",
+      "legacy_phones": [
+        "_",
+        "k",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "k",
+        "o",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ]
+    },
+    {
+      "text": "コシン",
+      "reading": "コシン",
+      "legacy_phones": [
+        "_",
+        "k",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ],
+      "corrected_phones": [
+        "_",
+        "k",
+        "o",
+        "sh",
+        "i",
+        "N",
+        "_"
+      ]
+    }
+  ],
+  "notes": [
+    "The upstream rule yields ':' without a leading space; split(' ')[1:] drops it.",
+    "The wrapper reuses the same converter, retains a marker, then repeats the preceding vowel.",
+    "Original waveforms and text, normalized readings, and the train/validation split are unchanged."
+  ]
+}

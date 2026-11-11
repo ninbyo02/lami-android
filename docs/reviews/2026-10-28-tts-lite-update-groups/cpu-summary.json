@@ -1,0 +1,259 @@
+{
+  "scope": "paired_asr_ablation_diagnostic_not_voice_adoption",
+  "baseline": {
+    "requests": 48,
+    "unique_texts": 16,
+    "errors": 163,
+    "reference_characters": 1677,
+    "kana_cer": 0.09719737626714371,
+    "exact_matches": 15
+  },
+  "arms": {
+    "prior-1000": {
+      "requests": 48,
+      "unique_texts": 16,
+      "errors": 170,
+      "reference_characters": 1677,
+      "kana_cer": 0.10137149672033392,
+      "exact_matches": 13,
+      "paired_requests": {
+        "better": 6,
+        "worse": 9,
+        "same": 33
+      },
+      "by_seed": {
+        "42": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 56,
+          "reference_characters": 559,
+          "kana_cer": 0.1001788908765653,
+          "exact_matches": 5
+        },
+        "43": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 57,
+          "reference_characters": 559,
+          "kana_cer": 0.10196779964221825,
+          "exact_matches": 4
+        },
+        "44": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 57,
+          "reference_characters": 559,
+          "kana_cer": 0.10196779964221825,
+          "exact_matches": 4
+        }
+      },
+      "by_category": {
+        "loanwords": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 0,
+          "reference_characters": 75,
+          "kana_cer": 0.0,
+          "exact_matches": 3
+        },
+        "long": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 7,
+          "reference_characters": 285,
+          "kana_cer": 0.02456140350877193,
+          "exact_matches": 0
+        },
+        "mixed_script": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 3,
+          "reference_characters": 111,
+          "kana_cer": 0.02702702702702703,
+          "exact_matches": 1
+        },
+        "numbers": {
+          "requests": 18,
+          "unique_texts": 6,
+          "errors": 124,
+          "reference_characters": 684,
+          "kana_cer": 0.18128654970760233,
+          "exact_matches": 3
+        },
+        "pronunciation": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 1,
+          "reference_characters": 78,
+          "kana_cer": 0.01282051282051282,
+          "exact_matches": 2
+        },
+        "proper_names": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 3,
+          "reference_characters": 123,
+          "kana_cer": 0.024390243902439025,
+          "exact_matches": 1
+        },
+        "prosody": {
+          "requests": 6,
+          "unique_texts": 2,
+          "errors": 5,
+          "reference_characters": 159,
+          "kana_cer": 0.031446540880503145,
+          "exact_matches": 3
+        },
+        "punctuation": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 6,
+          "reference_characters": 66,
+          "kana_cer": 0.09090909090909091,
+          "exact_matches": 0
+        },
+        "short": {
+          "requests": 6,
+          "unique_texts": 2,
+          "errors": 21,
+          "reference_characters": 96,
+          "kana_cer": 0.21875,
+          "exact_matches": 0
+        }
+      }
+    },
+    "low-lr-all": {
+      "requests": 48,
+      "unique_texts": 16,
+      "errors": 158,
+      "reference_characters": 1677,
+      "kana_cer": 0.09421586165772212,
+      "exact_matches": 13,
+      "paired_requests": {
+        "better": 6,
+        "worse": 7,
+        "same": 35
+      },
+      "by_seed": {
+        "42": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 50,
+          "reference_characters": 559,
+          "kana_cer": 0.08944543828264759,
+          "exact_matches": 5
+        },
+        "43": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 53,
+          "reference_characters": 559,
+          "kana_cer": 0.09481216457960644,
+          "exact_matches": 4
+        },
+        "44": {
+          "requests": 16,
+          "unique_texts": 16,
+          "errors": 55,
+          "reference_characters": 559,
+          "kana_cer": 0.09838998211091235,
+          "exact_matches": 4
+        }
+      },
+      "by_category": {
+        "loanwords": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 0,
+          "reference_characters": 75,
+          "kana_cer": 0.0,
+          "exact_matches": 3
+        },
+        "long": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 9,
+          "reference_characters": 285,
+          "kana_cer": 0.031578947368421054,
+          "exact_matches": 0
+        },
+        "mixed_script": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 1,
+          "reference_characters": 111,
+          "kana_cer": 0.009009009009009009,
+          "exact_matches": 2
+        },
+        "numbers": {
+          "requests": 18,
+          "unique_texts": 6,
+          "errors": 113,
+          "reference_characters": 684,
+          "kana_cer": 0.1652046783625731,
+          "exact_matches": 2
+        },
+        "pronunciation": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 1,
+          "reference_characters": 78,
+          "kana_cer": 0.01282051282051282,
+          "exact_matches": 2
+        },
+        "proper_names": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 3,
+          "reference_characters": 123,
+          "kana_cer": 0.024390243902439025,
+          "exact_matches": 1
+        },
+        "prosody": {
+          "requests": 6,
+          "unique_texts": 2,
+          "errors": 3,
+          "reference_characters": 159,
+          "kana_cer": 0.018867924528301886,
+          "exact_matches": 3
+        },
+        "punctuation": {
+          "requests": 3,
+          "unique_texts": 1,
+          "errors": 6,
+          "reference_characters": 66,
+          "kana_cer": 0.09090909090909091,
+          "exact_matches": 0
+        },
+        "short": {
+          "requests": 6,
+          "unique_texts": 2,
+          "errors": 22,
+          "reference_characters": 96,
+          "kana_cer": 0.22916666666666666,
+          "exact_matches": 0
+        }
+      }
+    }
+  },
+  "asr": {
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false
+  },
+  "voice_adopted": false,
+  "listening": "pending",
+  "notes": [
+    "Seeds reuse the same texts; requests are not independent text samples.",
+    "Previously used validation/probe sets are not an untouched final test.",
+    "Kana CER is an ASR/normalization proxy, not measured pronunciation error or voice similarity."
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "scope": "validation_checkpoint_selection_for_comparison_only",
+  "candidates": [
+    {
+      "step": 200,
+      "errors": 82,
+      "kana_cer": 0.05128205128205128,
+      "mel_l1": 0.592242115860184,
+      "by_seed": {
+        "42": 0.0525328330206379,
+        "43": 0.04690431519699812,
+        "44": 0.054409005628517824
+      }
+    },
+    {
+      "step": 400,
+      "errors": 88,
+      "kana_cer": 0.05503439649781113,
+      "mel_l1": 0.5235405420263608,
+      "by_seed": {
+        "42": 0.05065666041275797,
+        "43": 0.0525328330206379,
+        "44": 0.06191369606003752
+      }
+    },
+    {
+      "step": 600,
+      "errors": 66,
+      "kana_cer": 0.04127579737335835,
+      "mel_l1": 0.4835978438456853,
+      "by_seed": {
+        "42": 0.0375234521575985,
+        "43": 0.03377110694183865,
+        "44": 0.0525328330206379
+      }
+    },
+    {
+      "step": 800,
+      "errors": 75,
+      "kana_cer": 0.04690431519699812,
+      "mel_l1": 0.45702023059129715,
+      "by_seed": {
+        "42": 0.04878048780487805,
+        "43": 0.03377110694183865,
+        "44": 0.058161350844277676
+      }
+    },
+    {
+      "step": 1000,
+      "errors": 60,
+      "kana_cer": 0.0375234521575985,
+      "mel_l1": 0.4360625147819519,
+      "by_seed": {
+        "42": 0.03564727954971857,
+        "43": 0.02626641651031895,
+        "44": 0.05065666041275797
+      }
+    }
+  ],
+  "baseline": {
+    "examples": 60,
+    "errors": 66,
+    "reference_characters": 1599,
+    "kana_cer": 0.04127579737335835,
+    "exact_reading_matches": 28
+  },
+  "selected_step": 1000,
+  "candidate_directory": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/lami-gan-long-vowels-1000/candidate-step001000",
+  "candidate_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+  "selection": "Lowest aggregate kana CER over the same 20 validation texts and 3 seeds; mel L1 breaks ties.",
+  "voice_adopted": false,
+  "subjective_voice_quality": "pending",
+  "notes": [
+    "The same validation set is used for checkpoint selection; it is not an independent test set.",
+    "ASR CER cannot establish timbre, prosody or naturalness."
+  ]
+}

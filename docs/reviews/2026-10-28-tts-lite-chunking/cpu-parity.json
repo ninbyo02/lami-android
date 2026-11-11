@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scope": "cpu_acoustic_split_and_fixed_shape_chunk_parity",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1"
+  },
+  "core_frames": 16,
+  "context_frames": 16,
+  "window_frames": 48,
+  "tolerance": 0.0001,
+  "passed": 16,
+  "total": 16,
+  "worst_pcm_error": 1.4826655387878418e-06,
+  "worst_latent_error": 0.0,
+  "negative_controls": {
+    "no_context": {
+      "max_abs_error": 0.7911739349365234,
+      "rms_error": 0.07662457634018156,
+      "max_seam_error": 0.7911739349365234,
+      "seams": 9
+    },
+    "unmasked_padding": {
+      "max_abs_error": 0.0002680423203855753,
+      "rms_error": 7.832393059727224e-06,
+      "max_seam_error": 1.7881393432617188e-07,
+      "seams": 9
+    }
+  },
+  "negative_controls_detected": true,
+  "npu_output": "unverified",
+  "listening": "pending",
+  "notes": [
+    "Masking is applied inside the network, not just to its final output.",
+    "This validates the tested checkpoint and inputs on CPU, not HTP FP16 output.",
+    "Timing is measured in a separate process without a preceding full-audio reference run."
+  ]
+}

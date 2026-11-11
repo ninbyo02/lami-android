@@ -1,0 +1,147 @@
+{
+  "scope": "bounded_voice_ablation_integrity_audit",
+  "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+  "checked_prepared_wavs": 500,
+  "source_audio_added": 0,
+  "trials": [
+    {
+      "name": "low-lr-all",
+      "optimizer_steps": 400,
+      "all_training_metrics_finite": true,
+      "state_groups": {
+        "enc_p": {
+          "changed": 0,
+          "unchanged": 119
+        },
+        "dec": {
+          "changed": 290,
+          "unchanged": 0
+        },
+        "enc_q": {
+          "changed": 103,
+          "unchanged": 0
+        },
+        "flow": {
+          "changed": 240,
+          "unchanged": 0
+        },
+        "sdp": {
+          "changed": 0,
+          "unchanged": 286
+        },
+        "dp": {
+          "changed": 0,
+          "unchanged": 12
+        },
+        "emb_g": {
+          "changed": 0,
+          "unchanged": 1
+        }
+      },
+      "observed_gradient_modules": [
+        "enc_q",
+        "flow",
+        "dec"
+      ],
+      "baseline_wav_hashes_equal_original": 60,
+      "candidate_sha256": "b7a7c5d6a89568cff78586ab2fca776364be8ed0eafb00709ba52929b2a6560a",
+      "elapsed_training_seconds_including_validation_and_save": 271.067860405019,
+      "peak_gpu_allocated_bytes": 4754167808,
+      "trainable_parameters": 43313408
+    },
+    {
+      "name": "low-lr-fixed-decoder",
+      "optimizer_steps": 400,
+      "all_training_metrics_finite": true,
+      "state_groups": {
+        "enc_p": {
+          "changed": 0,
+          "unchanged": 119
+        },
+        "dec": {
+          "changed": 0,
+          "unchanged": 290
+        },
+        "enc_q": {
+          "changed": 103,
+          "unchanged": 0
+        },
+        "flow": {
+          "changed": 240,
+          "unchanged": 0
+        },
+        "sdp": {
+          "changed": 0,
+          "unchanged": 286
+        },
+        "dp": {
+          "changed": 0,
+          "unchanged": 12
+        },
+        "emb_g": {
+          "changed": 0,
+          "unchanged": 1
+        }
+      },
+      "observed_gradient_modules": [
+        "enc_q",
+        "flow"
+      ],
+      "baseline_wav_hashes_equal_original": 60,
+      "candidate_sha256": "d6006608a79635106c108983c165bc36d4b1150b3e5caa07f35d55515ab5231f",
+      "elapsed_training_seconds_including_validation_and_save": 218.6446829380002,
+      "peak_gpu_allocated_bytes": 4564493824,
+      "trainable_parameters": 28782336
+    },
+    {
+      "name": "low-lr-fixed-flow",
+      "optimizer_steps": 400,
+      "all_training_metrics_finite": true,
+      "state_groups": {
+        "enc_p": {
+          "changed": 0,
+          "unchanged": 119
+        },
+        "dec": {
+          "changed": 290,
+          "unchanged": 0
+        },
+        "enc_q": {
+          "changed": 103,
+          "unchanged": 0
+        },
+        "flow": {
+          "changed": 0,
+          "unchanged": 240
+        },
+        "sdp": {
+          "changed": 0,
+          "unchanged": 286
+        },
+        "dp": {
+          "changed": 0,
+          "unchanged": 12
+        },
+        "emb_g": {
+          "changed": 0,
+          "unchanged": 1
+        }
+      },
+      "observed_gradient_modules": [
+        "enc_q",
+        "dec"
+      ],
+      "baseline_wav_hashes_equal_original": 60,
+      "candidate_sha256": "6b83c1291ac3255788bce06d1488a7992a32f732c8671fee10078f3f251a36b7",
+      "elapsed_training_seconds_including_validation_and_save": 236.1088498409954,
+      "peak_gpu_allocated_bytes": 3967677952,
+      "trainable_parameters": 23452544
+    }
+  ],
+  "additional_rendered_wavs_checked": 288,
+  "cpu_rendered_wavs_checked": 96,
+  "cpu_baseline_wavs_equal_swaps": 48,
+  "cpu_durations_equal_baseline": true,
+  "additional_durations_equal_baseline": true,
+  "voice_adopted": false
+}

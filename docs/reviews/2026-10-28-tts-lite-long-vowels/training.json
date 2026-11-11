@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "scope": "bounded_gpu_full_gan_finetuning_trial_not_adopted_voice",
+  "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+  "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+  "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+  "prepared_train_sha256": "3b668ca319d4afb3d991f69d839dc887ad65673740423e7473c2b57e4057c2d7",
+  "prepared_validation_sha256": "58c47f9b246c22bdb615b2420b481dea15de94bce1c4aab8a5ea2a302f232a91",
+  "discriminators": {
+    "initialization": "fresh_upstream_default_seed42",
+    "pretrained_weights": false
+  },
+  "torch": "2.9.1+rocm7.2.1.gitff65f5bc",
+  "hip": "7.2.53211-e1a6bc5663",
+  "device": "AMD Radeon AI PRO R9700",
+  "requested_steps": 1000,
+  "max_minutes": 20.0,
+  "batch_size": 4,
+  "learning_rate": 1e-05,
+  "discriminator_learning_rate": 0.0002,
+  "precision": "float32",
+  "seed": 42,
+  "train_examples": 480,
+  "validation_examples": 20,
+  "frozen_modules": [
+    "enc_p",
+    "dp",
+    "sdp",
+    "emb_g"
+  ],
+  "phoneme_profile": "melo_long_vowels_v1",
+  "evaluation_seeds": [
+    42,
+    43,
+    44
+  ],
+  "evaluation_interval": 200,
+  "periodic_validations": [
+    {
+      "step": 200,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.592242115860184,
+        "duration": 3.4391002297401427,
+        "kl": 4.518547515074412
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    {
+      "step": 400,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.5235405420263608,
+        "duration": 3.2669693430264792,
+        "kl": 3.279373554388682
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    {
+      "step": 600,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.4835978438456853,
+        "duration": 3.231835440794627,
+        "kl": 2.753198309739431
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    {
+      "step": 800,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.45702023059129715,
+        "duration": 3.2146125713984173,
+        "kl": 2.451241753498713
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    },
+    {
+      "step": 1000,
+      "held_out_examples": 20,
+      "generated_requests": 60,
+      "protocol": "per_example_seed_v2_mas_noise_zero",
+      "seeds": [
+        42,
+        43,
+        44
+      ],
+      "mean": {
+        "mel_l1": 0.4360625147819519,
+        "duration": 3.2188390930493673,
+        "kl": 2.2621937950452167
+      },
+      "listening": "pending",
+      "notes": [
+        "Teacher-forced losses do not establish voice similarity or intelligibility.",
+        "Generated audio uses the held-out text with no reference audio conditioning."
+      ]
+    }
+  ],
+  "full_gan_losses": [
+    "mel",
+    "duration",
+    "kl",
+    "adversarial",
+    "feature_matching",
+    "duration_adversarial"
+  ],
+  "notes": [
+    "Uses unmodified upstream networks, alignment and losses; bounded loop adapts train.py.",
+    "CPU data spectra are cached in memory; no original dataset files are written.",
+    "No phone execution, NPU timing or subjective quality adoption is performed."
+  ],
+  "baseline_validation": {
+    "step": 0,
+    "held_out_examples": 20,
+    "generated_requests": 60,
+    "protocol": "per_example_seed_v2_mas_noise_zero",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "mean": {
+      "mel_l1": 0.9097089094420274,
+      "duration": 4.20975863536199,
+      "kl": 14.895442008972168
+    },
+    "listening": "pending",
+    "notes": [
+      "Teacher-forced losses do not establish voice similarity or intelligibility.",
+      "Generated audio uses the held-out text with no reference audio conditioning."
+    ]
+  },
+  "optimizer_steps": 1000,
+  "epochs_entered": 9,
+  "elapsed_training_seconds": 656.3184916340106,
+  "termination": "step_limit",
+  "peak_gpu_allocated_bytes": 4758081024,
+  "candidate": "/home/sato/project/lami-android-tts-lite-20261028/artifacts/tts-lite/lami-gan-long-vowels-1000/candidate-step001000",
+  "candidate_sha256": "1b8463c7ecc0aeba8e10107c8b92a8d65f2db84496a705a66e54c7b626fd278f",
+  "final_validation": {
+    "step": 1000,
+    "held_out_examples": 20,
+    "generated_requests": 60,
+    "protocol": "per_example_seed_v2_mas_noise_zero",
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "mean": {
+      "mel_l1": 0.4360625147819519,
+      "duration": 3.2188390930493673,
+      "kl": 2.2621937950452167
+    },
+    "listening": "pending",
+    "notes": [
+      "Teacher-forced losses do not establish voice similarity or intelligibility.",
+      "Generated audio uses the held-out text with no reference audio conditioning."
+    ]
+  }
+}

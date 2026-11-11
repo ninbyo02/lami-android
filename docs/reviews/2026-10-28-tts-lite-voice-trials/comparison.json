@@ -1,0 +1,49 @@
+{
+  "order": [
+    "reference",
+    "baseline",
+    "candidate",
+    "alternate_candidate"
+  ],
+  "examples": 1,
+  "optimizer_steps": 200,
+  "gain_adjustment": false,
+  "duration_seconds": 15.620362811791383,
+  "segments": [
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "reference",
+      "start_seconds": 0.5,
+      "end_seconds": 3.38,
+      "source_sha256": "fac6fbc0ea17bd36d08ec14ab3a8b0444740fc3465379a628d9f15214f5d52c8"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "baseline",
+      "start_seconds": 4.08,
+      "end_seconds": 7.0521541950113384,
+      "source_sha256": "c5358b11f86d82db9d1166b71c0c08ed73776f8ea63f9187fd3c5a297ab328b4"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "candidate",
+      "start_seconds": 7.752154195011338,
+      "end_seconds": 10.248299319727892,
+      "source_sha256": "9f1c71f037142302dc375076271e93cf522eaeb7f39341e143bb43a5096f3b96"
+    },
+    {
+      "id": "p165",
+      "text": "プライバシー設定を確認しています。",
+      "variant": "alternate_candidate",
+      "start_seconds": 10.94829931972789,
+      "end_seconds": 13.92045351473923,
+      "source_sha256": "8b6690239cf360948b451a13c6b2794f67a9501c2b45f433718239566604c56c"
+    }
+  ],
+  "sha256": "4423e797981d4780bb53ffc21fb3c43103d8eac25cfa6ae08ebbc4495f8996c9",
+  "listening": "pending",
+  "voice_adopted": false
+}

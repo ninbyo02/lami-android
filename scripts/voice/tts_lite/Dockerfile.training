@@ -1,0 +1,8 @@
+FROM rocm/pytorch:rocm7.2.1_ubuntu24.04_py3.12_pytorch_release_2.9.1
+
+# Keep the image's ROCm PyTorch; training uses already prepared JP phone IDs.
+RUN python -m pip install --no-cache-dir \
+    numpy==1.26.4 scipy==1.15.3 numba==0.61.2 \
+    librosa==0.10.2.post1 soundfile==0.13.1
+
+ENV PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 MIOPEN_FIND_MODE=FAST

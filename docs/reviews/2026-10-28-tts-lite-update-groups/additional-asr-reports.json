@@ -1,0 +1,407 @@
+{
+  "prior-400": {
+    "scope": "kana_cer_proxy_not_subjective_voice_quality",
+    "groups": {
+      "baseline": {
+        "examples": 48,
+        "errors": 186,
+        "reference_characters": 1677,
+        "kana_cer": 0.11091234347048301,
+        "exact_reading_matches": 17
+      },
+      "candidate": {
+        "examples": 48,
+        "errors": 170,
+        "reference_characters": 1677,
+        "kana_cer": 0.10137149672033392,
+        "exact_reading_matches": 16
+      }
+    },
+    "comparison_kind": "supplied_comparisons",
+    "checkpoint_step": null,
+    "unique_held_out_texts": 16,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "new_transcriptions": 96,
+    "reused_transcriptions": 0,
+    "model": "Systran/faster-whisper-small",
+    "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false,
+    "elapsed_seconds": 70.11294347600779,
+    "notes": [
+      "Expected text is never supplied to the recognizer.",
+      "Same cached ASR and normalization settings are used for all three variants.",
+      "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+      "Reference-audio errors reveal limitations of this ASR proxy itself."
+    ],
+    "by_seed": {
+      "42": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.15742397137745975
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.10196779964221825
+        }
+      },
+      "43": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.1073345259391771
+        }
+      },
+      "44": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08586762075134168
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.09481216457960644
+        }
+      }
+    }
+  },
+  "prior-1000": {
+    "scope": "kana_cer_proxy_not_subjective_voice_quality",
+    "groups": {
+      "baseline": {
+        "examples": 48,
+        "errors": 186,
+        "reference_characters": 1677,
+        "kana_cer": 0.11091234347048301,
+        "exact_reading_matches": 17
+      },
+      "candidate": {
+        "examples": 48,
+        "errors": 168,
+        "reference_characters": 1677,
+        "kana_cer": 0.1001788908765653,
+        "exact_reading_matches": 14
+      }
+    },
+    "comparison_kind": "supplied_comparisons",
+    "checkpoint_step": null,
+    "unique_held_out_texts": 16,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "new_transcriptions": 48,
+    "reused_transcriptions": 48,
+    "model": "Systran/faster-whisper-small",
+    "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false,
+    "elapsed_seconds": 35.616244119999465,
+    "notes": [
+      "Expected text is never supplied to the recognizer.",
+      "Same cached ASR and normalization settings are used for all three variants.",
+      "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+      "Reference-audio errors reveal limitations of this ASR proxy itself."
+    ],
+    "by_seed": {
+      "42": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.15742397137745975
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.1037567084078712
+        }
+      },
+      "43": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.1073345259391771
+        }
+      },
+      "44": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08586762075134168
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        }
+      }
+    }
+  },
+  "low-lr-all": {
+    "scope": "kana_cer_proxy_not_subjective_voice_quality",
+    "groups": {
+      "baseline": {
+        "examples": 48,
+        "errors": 186,
+        "reference_characters": 1677,
+        "kana_cer": 0.11091234347048301,
+        "exact_reading_matches": 17
+      },
+      "candidate": {
+        "examples": 48,
+        "errors": 149,
+        "reference_characters": 1677,
+        "kana_cer": 0.08884913536076326,
+        "exact_reading_matches": 15
+      }
+    },
+    "comparison_kind": "supplied_comparisons",
+    "checkpoint_step": null,
+    "unique_held_out_texts": 16,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "new_transcriptions": 48,
+    "reused_transcriptions": 48,
+    "model": "Systran/faster-whisper-small",
+    "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false,
+    "elapsed_seconds": 35.78144645600696,
+    "notes": [
+      "Expected text is never supplied to the recognizer.",
+      "Same cached ASR and normalization settings are used for all three variants.",
+      "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+      "Reference-audio errors reveal limitations of this ASR proxy itself."
+    ],
+    "by_seed": {
+      "42": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.15742397137745975
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.09660107334525939
+        }
+      },
+      "43": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.08228980322003578
+        }
+      },
+      "44": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08586762075134168
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.08765652951699464
+        }
+      }
+    }
+  },
+  "low-lr-fixed-decoder": {
+    "scope": "kana_cer_proxy_not_subjective_voice_quality",
+    "groups": {
+      "baseline": {
+        "examples": 48,
+        "errors": 186,
+        "reference_characters": 1677,
+        "kana_cer": 0.11091234347048301,
+        "exact_reading_matches": 17
+      },
+      "candidate": {
+        "examples": 48,
+        "errors": 153,
+        "reference_characters": 1677,
+        "kana_cer": 0.09123434704830054,
+        "exact_reading_matches": 15
+      }
+    },
+    "comparison_kind": "supplied_comparisons",
+    "checkpoint_step": null,
+    "unique_held_out_texts": 16,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "new_transcriptions": 48,
+    "reused_transcriptions": 48,
+    "model": "Systran/faster-whisper-small",
+    "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false,
+    "elapsed_seconds": 35.639170987997204,
+    "notes": [
+      "Expected text is never supplied to the recognizer.",
+      "Same cached ASR and normalization settings are used for all three variants.",
+      "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+      "Reference-audio errors reveal limitations of this ASR proxy itself."
+    ],
+    "by_seed": {
+      "42": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.15742397137745975
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.09660107334525939
+        }
+      },
+      "43": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.08050089445438283
+        }
+      },
+      "44": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08586762075134168
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.09660107334525939
+        }
+      }
+    }
+  },
+  "low-lr-fixed-flow": {
+    "scope": "kana_cer_proxy_not_subjective_voice_quality",
+    "groups": {
+      "baseline": {
+        "examples": 48,
+        "errors": 186,
+        "reference_characters": 1677,
+        "kana_cer": 0.11091234347048301,
+        "exact_reading_matches": 17
+      },
+      "candidate": {
+        "examples": 48,
+        "errors": 169,
+        "reference_characters": 1677,
+        "kana_cer": 0.10077519379844961,
+        "exact_reading_matches": 13
+      }
+    },
+    "comparison_kind": "supplied_comparisons",
+    "checkpoint_step": null,
+    "unique_held_out_texts": 16,
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "new_transcriptions": 48,
+    "reused_transcriptions": 48,
+    "model": "Systran/faster-whisper-small",
+    "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+    "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+    "faster_whisper": "1.1.1",
+    "ctranslate2": "4.8.4",
+    "compute_type": "int8",
+    "cpu_threads": 4,
+    "language": "ja",
+    "beam_size": 5,
+    "temperature": 0,
+    "vad_filter": false,
+    "condition_on_previous_text": false,
+    "expected_text_prompt": false,
+    "elapsed_seconds": 35.93918578699231,
+    "notes": [
+      "Expected text is never supplied to the recognizer.",
+      "Same cached ASR and normalization settings are used for all three variants.",
+      "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+      "Reference-audio errors reveal limitations of this ASR proxy itself."
+    ],
+    "by_seed": {
+      "42": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.15742397137745975
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.10196779964221825
+        }
+      },
+      "43": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08944543828264759
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.10196779964221825
+        }
+      },
+      "44": {
+        "baseline": {
+          "examples": 16,
+          "kana_cer": 0.08586762075134168
+        },
+        "candidate": {
+          "examples": 16,
+          "kana_cer": 0.09838998211091235
+        }
+      }
+    }
+  }
+}

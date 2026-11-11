@@ -1,0 +1,103 @@
+{
+  "scope": "voice_update_group_lr_review_evidence",
+  "base_commit": "63171cb6386949152c47ff158eb8388fbeac0e4a",
+  "files": {
+    "additional-asr-reports.json": {
+      "bytes": 11396,
+      "sha256": "3371663453b8be156025b5b9b18a406cb02796840ef7325c4550403629653e8d"
+    },
+    "additional-asr-requests.jsonl": {
+      "bytes": 329103,
+      "sha256": "674d8ee0208c223c22f1df3e3c6fe88f3d1e1b7b11d0e8348caba91c36f7165b"
+    },
+    "additional-summary.json": {
+      "bytes": 15895,
+      "sha256": "d035c570bb5b0cac1716952c0e1f6bc6432fd78ef9845410e044205eab5f5208"
+    },
+    "asr-sensitivity.json": {
+      "bytes": 6599,
+      "sha256": "59b73c19cf7b4a839360fd8c3b54f70213560f95af525654e48bfc18615c3d82"
+    },
+    "comparison.json": {
+      "bytes": 1946,
+      "sha256": "c98a75047b28a686597612700a43f4d568597eca449a85fa53e9bf9e1b8cdb24"
+    },
+    "cpu-asr-reports.json": {
+      "bytes": 2279,
+      "sha256": "26cd52f2470eed5fb77c377ac925c807fd0b0cf92bb1ffe43fb885bfa5b76265"
+    },
+    "cpu-asr-requests.jsonl": {
+      "bytes": 65442,
+      "sha256": "eef30c7c2d744c57fb73a8e9e2642b6b2b4d4b33ac39686a80593a15a382402d"
+    },
+    "cpu-check-plan.json": {
+      "bytes": 380,
+      "sha256": "84012d2e6137550bd5dd77f33e66d3894ce9a722420800307b57f4516b3a73a3"
+    },
+    "cpu-render.json": {
+      "bytes": 1833,
+      "sha256": "5002df72d31ebfd98b14c27d6d1db9420120d882a13e09a0bf66b67f00f10ea5"
+    },
+    "cpu-summary.json": {
+      "bytes": 6929,
+      "sha256": "85e3f653fe679763e97c17d71d60994040143588b544cdad075ba61b2c513901"
+    },
+    "gpu-render.json": {
+      "bytes": 5111,
+      "sha256": "62d1a250c479b7645db5a2985fc2251c783ad4f4cadcae08013429f606c09a95"
+    },
+    "inputs.jsonl": {
+      "bytes": 23177,
+      "sha256": "875d1af388ceab2fff370f1f54e10125e8f05825201025f31b594ee4246eea49"
+    },
+    "integrity.json": {
+      "bytes": 3759,
+      "sha256": "975f24d81d02e476a7df0ad0d597bee4e454979d54d5643a0fe29788996b833e"
+    },
+    "launch.json": {
+      "bytes": 7840,
+      "sha256": "dea6d402115223bf967b90425c0a52f4157d8a6c42eafe8d773c2aeed0b01832"
+    },
+    "plan.json": {
+      "bytes": 892,
+      "sha256": "505780ec54396ef6e0913e38da05197b26e619da4a6d4d9bb304fe7d5454e422"
+    },
+    "swaps-asr-reports.json": {
+      "bytes": 6828,
+      "sha256": "0463ab98331affa3d5810814d77078d97521364e71d4fb44e6f587a502181395"
+    },
+    "swaps-asr-requests.jsonl": {
+      "bytes": 196418,
+      "sha256": "e4492b0eb98222465aa443bedb4a6be53bec3c09809c06df8f1469836675d5cb"
+    },
+    "swaps-render.json": {
+      "bytes": 2718,
+      "sha256": "43ea110bb45c6cb20c5d94dbeb6fb45216e30cd2ea0889a0e873f18ad30a782e"
+    },
+    "swaps-summary.json": {
+      "bytes": 9890,
+      "sha256": "665e05ccbb3aeb9fe254e52a45cae8aa7570052e9d562459a621c9a1101a5f46"
+    },
+    "training.json": {
+      "bytes": 12337,
+      "sha256": "0319d2ab721afcacc9efe1b15c93600867d155d54d343f9de1c48aa137db7b41"
+    },
+    "validation-asr-reports.json": {
+      "bytes": 8331,
+      "sha256": "6530c5f7ede4cf041702e5c4e16077472961f749c1b7591a0152e553b8fd8fbe"
+    },
+    "validation-asr-requests.jsonl": {
+      "bytes": 323213,
+      "sha256": "9ae7c74efeda16e85f8324fb6bea5a10c5178e56ffcae478d4af16aed5001ba7"
+    },
+    "validation-summary.json": {
+      "bytes": 5851,
+      "sha256": "339d96f9481e0a5b156db19ce3df0320092080210a12e100a94e3ba4c8242820"
+    }
+  },
+  "notes": [
+    "Source JSON reports are copied; grouped ASR JSONL adds an arm label without changing source rows.",
+    "Comparison JSON includes descriptive condition labels and MP3 hash/size.",
+    "Binary audio, models, SDK and prepared data remain outside Git."
+  ]
+}

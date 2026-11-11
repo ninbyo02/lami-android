@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "scope": "fixed_shape_masked_chunk_onnx_cpu_parity",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "941616cf74e4fb704ac1e9d0a9c5da2ddfb6ef4ec331f6a3eaf84779e454e07d",
+    "config_sha256": "29e7fb2697f9971f96c51218819339fe4ef0ce3eaabd66c9a403e714987e97d6",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1",
+    "training": {
+      "voice": "lami_cute_v3_03_trial_not_adopted",
+      "optimizer_steps": 200,
+      "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+      "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "frozen_modules": [
+        "enc_p",
+        "dp",
+        "sdp",
+        "emb_g"
+      ]
+    }
+  },
+  "core_frames": 16,
+  "context_frames": 16,
+  "window_frames": 48,
+  "hop": 512,
+  "onnx_sha256": "fc470b652bf067983b7001314ddffb5d9fbf36f96ba3416e38030b1ea98a58bc",
+  "input_list_sha256": "fd0572c7180fd5c760c9f3a70b7681d2a98cf8b4a470aee86f1c65fbeab32aa6",
+  "inputs": [
+    {
+      "name": "latent",
+      "shape": [
+        1,
+        192,
+        48
+      ]
+    },
+    {
+      "name": "mask_0",
+      "shape": [
+        1,
+        1,
+        48
+      ]
+    },
+    {
+      "name": "mask_1",
+      "shape": [
+        1,
+        1,
+        384
+      ]
+    },
+    {
+      "name": "mask_2",
+      "shape": [
+        1,
+        1,
+        3072
+      ]
+    },
+    {
+      "name": "mask_3",
+      "shape": [
+        1,
+        1,
+        6144
+      ]
+    },
+    {
+      "name": "mask_4",
+      "shape": [
+        1,
+        1,
+        12288
+      ]
+    },
+    {
+      "name": "mask_5",
+      "shape": [
+        1,
+        1,
+        24576
+      ]
+    }
+  ],
+  "operators": [
+    "Add",
+    "Constant",
+    "Conv",
+    "ConvTranspose",
+    "Div",
+    "LeakyRelu",
+    "Mul",
+    "Tanh"
+  ],
+  "validated_requests": 16,
+  "worst_pcm_error": 4.477798938751221e-06,
+  "worst_seam_error": 1.9818544387817383e-06,
+  "tolerance": 0.0001,
+  "requests": [
+    {
+      "id": "greeting",
+      "latent_frames": 155,
+      "chunks": 10,
+      "max_abs_error": 2.1010637283325195e-06,
+      "rms_error": 1.1177350541683005e-07,
+      "max_seam_error": 4.6193599700927734e-07,
+      "seams": 9
+    },
+    {
+      "id": "acknowledgement",
+      "latent_frames": 316,
+      "chunks": 20,
+      "max_abs_error": 1.1213123798370361e-06,
+      "rms_error": 6.575417166883155e-08,
+      "max_seam_error": 4.3585896492004395e-07,
+      "seams": 19
+    },
+    {
+      "id": "numbers",
+      "latent_frames": 422,
+      "chunks": 27,
+      "max_abs_error": 1.2293457984924316e-06,
+      "rms_error": 6.883040406322182e-08,
+      "max_seam_error": 7.003545761108398e-07,
+      "seams": 26
+    },
+    {
+      "id": "dates",
+      "latent_frames": 457,
+      "chunks": 29,
+      "max_abs_error": 4.433095455169678e-06,
+      "rms_error": 1.6658661994964758e-07,
+      "max_seam_error": 1.1920928955078125e-06,
+      "seams": 28
+    },
+    {
+      "id": "counter",
+      "latent_frames": 327,
+      "chunks": 21,
+      "max_abs_error": 2.3748725652694702e-06,
+      "rms_error": 1.2610267244719385e-07,
+      "max_seam_error": 1.9818544387817383e-06,
+      "seams": 20
+    },
+    {
+      "id": "proper_names",
+      "latent_frames": 443,
+      "chunks": 28,
+      "max_abs_error": 3.246590495109558e-06,
+      "rms_error": 7.098684167687933e-08,
+      "max_seam_error": 4.76837158203125e-07,
+      "seams": 27
+    },
+    {
+      "id": "mixed_script",
+      "latent_frames": 453,
+      "chunks": 29,
+      "max_abs_error": 1.1622905731201172e-06,
+      "rms_error": 6.654660155377378e-08,
+      "max_seam_error": 8.642673492431641e-07,
+      "seams": 28
+    },
+    {
+      "id": "long_sentence",
+      "latent_frames": 1036,
+      "chunks": 65,
+      "max_abs_error": 1.6619451344013214e-06,
+      "rms_error": 7.609987159023358e-08,
+      "max_seam_error": 8.791685104370117e-07,
+      "seams": 64
+    },
+    {
+      "id": "decimal",
+      "latent_frames": 398,
+      "chunks": 25,
+      "max_abs_error": 1.817941665649414e-06,
+      "rms_error": 7.825426358844702e-08,
+      "max_seam_error": 7.897615432739258e-07,
+      "seams": 24
+    },
+    {
+      "id": "raw_digits",
+      "latent_frames": 544,
+      "chunks": 34,
+      "max_abs_error": 4.477798938751221e-06,
+      "rms_error": 1.0348830044246552e-07,
+      "max_seam_error": 5.699694156646729e-07,
+      "seams": 33
+    },
+    {
+      "id": "raw_date",
+      "latent_frames": 538,
+      "chunks": 34,
+      "max_abs_error": 1.1026859283447266e-06,
+      "rms_error": 6.057739100425854e-08,
+      "max_seam_error": 5.669426172971725e-07,
+      "seams": 33
+    },
+    {
+      "id": "question",
+      "latent_frames": 341,
+      "chunks": 22,
+      "max_abs_error": 1.341104507446289e-06,
+      "rms_error": 6.577011670666165e-08,
+      "max_seam_error": 1.341104507446289e-06,
+      "seams": 21
+    },
+    {
+      "id": "encouragement",
+      "latent_frames": 398,
+      "chunks": 25,
+      "max_abs_error": 7.748603820800781e-07,
+      "rms_error": 5.953659749735294e-08,
+      "max_seam_error": 4.4330954551696777e-07,
+      "seams": 24
+    },
+    {
+      "id": "loanwords",
+      "latent_frames": 335,
+      "chunks": 21,
+      "max_abs_error": 2.5443732738494873e-06,
+      "rms_error": 6.081556763423929e-08,
+      "max_seam_error": 7.897615432739258e-07,
+      "seams": 20
+    },
+    {
+      "id": "punctuation",
+      "latent_frames": 301,
+      "chunks": 19,
+      "max_abs_error": 1.0356307029724121e-06,
+      "rms_error": 6.752666597234547e-08,
+      "max_seam_error": 9.015202522277832e-07,
+      "seams": 18
+    },
+    {
+      "id": "long_vowels",
+      "latent_frames": 335,
+      "chunks": 21,
+      "max_abs_error": 1.385807991027832e-06,
+      "rms_error": 7.333237929519728e-08,
+      "max_seam_error": 4.698522388935089e-07,
+      "seams": 20
+    }
+  ],
+  "npu_execution": "unverified",
+  "htp_fp16_output": "unverified",
+  "notes": [
+    "A single graph handles head, middle and tail, including a short final core.",
+    "Six multiscale masks preserve true signal boundaries through the original residual blocks.",
+    "Speaker ID 0 is fixed from the selected trained checkpoint; voice identity is recorded in provenance."
+  ],
+  "report_annotation": "Speaker wording corrected after export; numerical results and ONNX bytes unchanged."
+}

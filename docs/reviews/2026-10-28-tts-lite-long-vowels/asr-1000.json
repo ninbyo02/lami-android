@@ -1,0 +1,99 @@
+{
+  "scope": "held_out_kana_cer_proxy_not_subjective_voice_quality",
+  "groups": {
+    "reference": {
+      "examples": 60,
+      "errors": 9,
+      "reference_characters": 1599,
+      "kana_cer": 0.005628517823639775,
+      "exact_reading_matches": 51
+    },
+    "baseline": {
+      "examples": 60,
+      "errors": 66,
+      "reference_characters": 1599,
+      "kana_cer": 0.04127579737335835,
+      "exact_reading_matches": 28
+    },
+    "candidate": {
+      "examples": 60,
+      "errors": 60,
+      "reference_characters": 1599,
+      "kana_cer": 0.0375234521575985,
+      "exact_reading_matches": 32
+    }
+  },
+  "checkpoint_step": 1000,
+  "unique_held_out_texts": 20,
+  "seeds": [
+    42,
+    43,
+    44
+  ],
+  "new_transcriptions": 60,
+  "reused_transcriptions": 120,
+  "model": "Systran/faster-whisper-small",
+  "model_snapshot": "536b0662742c02347bc0e980a01041f333bce120",
+  "model_sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+  "faster_whisper": "1.1.1",
+  "ctranslate2": "4.8.4",
+  "compute_type": "int8",
+  "cpu_threads": 4,
+  "language": "ja",
+  "beam_size": 5,
+  "temperature": 0,
+  "vad_filter": false,
+  "condition_on_previous_text": false,
+  "expected_text_prompt": false,
+  "elapsed_seconds": 37.93805073600379,
+  "notes": [
+    "Expected text is never supplied to the recognizer.",
+    "Same cached ASR and normalization settings are used for all three variants.",
+    "Kana CER ignores spelling homophones and does not establish voice similarity, accent or naturalness.",
+    "Reference-audio errors reveal limitations of this ASR proxy itself."
+  ],
+  "by_seed": {
+    "42": {
+      "reference": {
+        "examples": 20,
+        "kana_cer": 0.005628517823639775
+      },
+      "baseline": {
+        "examples": 20,
+        "kana_cer": 0.039399624765478425
+      },
+      "candidate": {
+        "examples": 20,
+        "kana_cer": 0.03564727954971857
+      }
+    },
+    "43": {
+      "reference": {
+        "examples": 20,
+        "kana_cer": 0.005628517823639775
+      },
+      "baseline": {
+        "examples": 20,
+        "kana_cer": 0.0375234521575985
+      },
+      "candidate": {
+        "examples": 20,
+        "kana_cer": 0.02626641651031895
+      }
+    },
+    "44": {
+      "reference": {
+        "examples": 20,
+        "kana_cer": 0.005628517823639775
+      },
+      "baseline": {
+        "examples": 20,
+        "kana_cer": 0.04690431519699812
+      },
+      "candidate": {
+        "examples": 20,
+        "kana_cer": 0.05065666041275797
+      }
+    }
+  }
+}

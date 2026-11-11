@@ -1,0 +1,2 @@
+# Optional dependency for importing the upstream spectrogram implementation.
+librosa==0.10.2.post1

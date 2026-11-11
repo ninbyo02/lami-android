@@ -1,0 +1,10 @@
+{
+  "scope": "trial_checkpoint_and_frozen_parameter_integrity",
+  "frozen_state_tensors": 418,
+  "frozen_parameters_bit_identical": true,
+  "changed_acoustic_state_tensors": 633,
+  "finite_full_trial_steps": 200,
+  "finite_frozen_trial_steps": 200,
+  "held_out_inference_lengths_unchanged": 20,
+  "voice_adopted": false
+}

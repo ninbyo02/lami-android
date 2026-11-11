@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scope": "fixed_shape_single_speaker_decoder_only",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "upstream",
+    "reading_version": null
+  },
+  "frames": 32,
+  "opset": 13,
+  "input_shape": [
+    1,
+    192,
+    32
+  ],
+  "output_shape": [
+    1,
+    1,
+    16384
+  ],
+  "onnx_sha256": "2d6a7419afdc15652f46549a225c792e435402315592bd9755a82dd7a35b445f",
+  "input_sha256": "22804f982c64c03c792ab5b4063627859adf9084fe0fef604274ea9d28635a1c",
+  "max_abs_error_vs_pytorch": 7.972121238708496e-07,
+  "ort_cpu_ms": [
+    43.71372101013549,
+    42.545098986011,
+    42.29142999975011,
+    42.66668000491336,
+    44.39345101127401
+  ],
+  "operators": [
+    "Add",
+    "Constant",
+    "Conv",
+    "ConvTranspose",
+    "Div",
+    "LeakyRelu",
+    "Tanh"
+  ],
+  "audio_seconds": 0.37151927437641724,
+  "npu_execution": "unverified",
+  "streaming_boundary_quality": "unverified",
+  "notes": [
+    "Uses real latents captured from an upstream Japanese utterance.",
+    "Static speaker 0 is embedded; this is the upstream voice, not LAMI.",
+    "An isolated latent window does not establish seamless streaming.",
+    "This probe excludes frontend, duration prediction, flow and Android playback."
+  ]
+}

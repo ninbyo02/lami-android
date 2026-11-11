@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "scope": "verified_voice_dataset_preparation_not_training",
+  "voice_id": "lami-cute-v3-03",
+  "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+  "verified_originals": 500,
+  "train": 480,
+  "validation": 20,
+  "duration_minutes": 36.010666666666665,
+  "source_rate": 24000,
+  "prepared_rate": 44100,
+  "train_list_sha256": "d544c2aec7913192abff394db04f2a684828068cffa9aa5702c12012719107a5",
+  "validation_list_sha256": "2a2e3dda9e71b47f1372d4c96051377a4a4bef5d37a43ce2b37023154fc16f40",
+  "config_sha256": "2c8f9018202fbb0137b6390c60995f47d85e44197069ebc7aac5a368d964f492",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1"
+  },
+  "training_executed": false,
+  "notes": [
+    "Only the finalized reviewed manifest is accepted; every original WAV hash is checked.",
+    "Converted files and text stay in the ignored experiment directory.",
+    "Resampling to 44.1kHz matches the existing model and adds no source bandwidth.",
+    "Identical normalized text and identical audio hashes cannot cross the train/validation split.",
+    "BERT placeholder tensors are zeros because this model has disable_bert=true.",
+    "Prepared config is not a validated training run or an updated LAMI voice model."
+  ]
+}

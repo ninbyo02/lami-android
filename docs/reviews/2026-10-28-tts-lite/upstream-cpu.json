@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-28T03:20:37.865394+00:00",
+  "scope": "host_cpu_full_utterance_pcm_no_playback",
+  "hardware": {
+    "system": "Linux",
+    "node": "X870E-PLUS",
+    "release": "6.14.0-34-generic",
+    "version": "#34~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue Sep 23 15:35:20 UTC 2",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "model_init_ms": 4469.865455990657,
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+    "config_sha256": "207def0d31bf7623e20f4a5e690f217747661bf495319c0139303122b6debcc3",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "upstream_JP_0_not_LAMI",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e"
+  },
+  "corpus_sha256": "61ace4843d3b20affc439d4ca5fcb6a6239fea870e92a7e1a35d410da6888b71",
+  "summary": {
+    "ok": 16,
+    "failed": 0,
+    "warm_observations": 15,
+    "warm_pcm_ready_ms_p50": 2017.8748379985336,
+    "warm_pcm_ready_ms_p95": 4881.5452202048655,
+    "warm_rtf_p50": 0.15887133004551698,
+    "warm_rtf_p95": 0.6105945523419452,
+    "warm_rtf_aggregate": 0.3625931084434011,
+    "first_pass": {
+      "observations": 7,
+      "pcm_ready_ms_p50": 3031.3960629864596,
+      "rtf_p50": 0.5834208642265339,
+      "rtf_p95": 0.6349647918690647
+    },
+    "repeated": {
+      "observations": 8,
+      "pcm_ready_ms_p50": 536.1923625023337,
+      "rtf_p50": 0.12046512689731148,
+      "rtf_p95": 0.14740115501483736
+    }
+  },
+  "peak_process_rss_kib": 3277532,
+  "acceptance": {
+    "device_latency": "unverified",
+    "npu_performance": "unverified",
+    "pronunciation": "pending_listening",
+    "lami_voice_similarity": "not_evaluated_stock_voice"
+  },
+  "notes": [
+    "Initialization is reported separately from inference.",
+    "PCM-ready time covers frontend and full synthesis; it is not first-audio or playback latency.",
+    "The first inference is excluded from warm percentiles.",
+    "Desktop CPU RTF does not predict Android CPU or NPU RTF."
+  ]
+}

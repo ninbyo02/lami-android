@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "scope": "cpu_acoustic_split_and_fixed_shape_chunk_parity",
+  "provenance": {
+    "source_revision": "209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "checkpoint_sha256": "941616cf74e4fb704ac1e9d0a9c5da2ddfb6ef4ec331f6a3eaf84779e454e07d",
+    "config_sha256": "29e7fb2697f9971f96c51218819339fe4ef0ce3eaabd66c9a403e714987e97d6",
+    "model": "myshell-ai/MeloTTS-Japanese",
+    "voice": "lami_cute_v3_03_trial_not_adopted",
+    "torch": "2.5.1+cpu",
+    "threads": 4,
+    "sample_rate": 44100,
+    "tokenizer_revision": "65243d6e5629b969c77309f217bd7b1a79d43c7e",
+    "frontend": "openjtalk",
+    "reading_version": "0.4.1",
+    "training": {
+      "voice": "lami_cute_v3_03_trial_not_adopted",
+      "optimizer_steps": 200,
+      "source_manifest_sha256": "52c1fb660d58c2f4d9b7b881c3b55c505db019929cc22fa24c4c7917335aa2b0",
+      "base_checkpoint_sha256": "96ae783e6ec0177aa810e2a645aec5d136a6f4992fdea26ee92b7b04d9688ad0",
+      "frozen_modules": [
+        "enc_p",
+        "dp",
+        "sdp",
+        "emb_g"
+      ]
+    }
+  },
+  "core_frames": 16,
+  "context_frames": 16,
+  "window_frames": 48,
+  "tolerance": 0.0001,
+  "passed": 16,
+  "total": 16,
+  "worst_pcm_error": 1.8998980522155762e-06,
+  "worst_latent_error": 0.0,
+  "negative_controls": {
+    "no_context": {
+      "max_abs_error": 0.6560389995574951,
+      "rms_error": 0.056659690716920966,
+      "max_seam_error": 0.6560389995574951,
+      "seams": 9
+    },
+    "unmasked_padding": {
+      "max_abs_error": 0.00030066401814110577,
+      "rms_error": 8.93862115911452e-06,
+      "max_seam_error": 1.4901161193847656e-07,
+      "seams": 9
+    }
+  },
+  "negative_controls_detected": true,
+  "npu_output": "unverified",
+  "listening": "pending",
+  "notes": [
+    "Masking is applied inside the network, not just to its final output.",
+    "This validates the tested checkpoint and inputs on CPU, not HTP FP16 output.",
+    "Timing is measured in a separate process without a preceding full-audio reference run."
+  ]
+}
