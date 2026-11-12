@@ -1,0 +1,87 @@
+{
+  "model_sha256": "54aa8ae8872e3bcbf78165f76255136627ca9de48ff02edf2bd9bb1257df1d01",
+  "input_sha256": {
+    "input-0.raw": "0d9feaddab069fcd2d148807e540ddc3cbd6b17dfa82a113f879cf183909a3cd",
+    "input-1.raw": "a19238f84387ba71b91afc39523d422ebb568ca03c33ae8dd2af8a57436cb2d6",
+    "input-2.raw": "bb8c2cafe8033b7f0f21da51b952544d9966ef57fe9324856a8fe7d17acf5b80",
+    "input-3.raw": "cd356560a8f4ca56469130b5bd7ad733a181f376599443ea2a77aa4b935dbbba",
+    "input-4.raw": "a6320167f3dd01d6eb6eb812be585135122559d58e32a33ea2679f053e50ec4d",
+    "input-5.raw": "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b",
+    "input-6.raw": "a4bd89d0c3e16ec03c5436d0b9b8eb1a934beeac808447459e5ee2f9a23e97d7"
+  },
+  "rows": [
+    {
+      "trial": 0,
+      "threads": 1,
+      "execute_ms": 2.1772705,
+      "delegate_ms": 1.7375098125000001,
+      "native_ms": 0.40411675
+    },
+    {
+      "trial": 0,
+      "threads": 2,
+      "execute_ms": 2.1919109375000003,
+      "delegate_ms": 1.7547051875,
+      "native_ms": 0.39645306250000006
+    },
+    {
+      "trial": 0,
+      "threads": 4,
+      "execute_ms": 2.5789125625000002,
+      "delegate_ms": 2.1541799375,
+      "native_ms": 0.3812805
+    },
+    {
+      "trial": 1,
+      "threads": 4,
+      "execute_ms": 2.4522135625,
+      "delegate_ms": 1.98776,
+      "native_ms": 0.419592875
+    },
+    {
+      "trial": 1,
+      "threads": 2,
+      "execute_ms": 1.9842408125,
+      "delegate_ms": 1.5791459374999997,
+      "native_ms": 0.3702902499999998
+    },
+    {
+      "trial": 1,
+      "threads": 1,
+      "execute_ms": 2.0740888125000003,
+      "delegate_ms": 1.69251775,
+      "native_ms": 0.34936512500000005
+    },
+    {
+      "trial": 2,
+      "threads": 1,
+      "execute_ms": 1.8693540625,
+      "delegate_ms": 1.5072066874999999,
+      "native_ms": 0.3333959374999999
+    },
+    {
+      "trial": 2,
+      "threads": 2,
+      "execute_ms": 1.8295325,
+      "delegate_ms": 1.4497795000000002,
+      "native_ms": 0.34620856249999993
+    },
+    {
+      "trial": 2,
+      "threads": 4,
+      "execute_ms": 2.301349875,
+      "delegate_ms": 1.867253375,
+      "native_ms": 0.3932224375
+    }
+  ],
+  "median_execute_ms": {
+    "1": 2.0740888125000003,
+    "2": 1.9842408125,
+    "4": 2.4522135625
+  },
+  "limitations": [
+    "Host x86 CPU only; no Android speed claim.",
+    "Tracing overhead included; cache and scheduling uncontrolled.",
+    "Output equality across thread counts not checked; do not promote."
+  ]
+}
